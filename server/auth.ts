@@ -6,6 +6,8 @@ import { randomBytes } from "crypto";
 import type { Express, RequestHandler } from "express";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import passport from "passport";
+import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 
 // Session setup
 export function getSession() {
@@ -165,10 +167,78 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   return res.status(401).json({ message: "Unauthorized" });
 };
 
+// Setup Google OAuth
+function setupGoogleOAuth(app: Express) {
+  const clientID = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  
+  if (!clientID || !clientSecret) {
+    console.log("Google OAuth not configured - missing GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET");
+    return false;
+  }
+
+  // Determine callback URL based on environment
+  const callbackURL = process.env.REPL_SLUG 
+    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`
+    : "http://localhost:5000/api/auth/google/callback";
+
+  passport.use(
+    new GoogleStrategy(
+      {
+        clientID,
+        clientSecret,
+        callbackURL,
+      },
+      async (accessToken, refreshToken, profile, done) => {
+        try {
+          const email = profile.emails?.[0]?.value;
+          if (!email) {
+            return done(new Error("No email found in Google profile"), undefined);
+          }
+
+          const user = await createOrUpdateGoogleUser({
+            googleId: profile.id,
+            email,
+            firstName: profile.name?.givenName,
+            lastName: profile.name?.familyName,
+            profileImageUrl: profile.photos?.[0]?.value,
+          });
+
+          return done(null, user);
+        } catch (error) {
+          return done(error as Error, undefined);
+        }
+      }
+    )
+  );
+
+  passport.serializeUser((user: any, done) => {
+    done(null, user.id);
+  });
+
+  passport.deserializeUser(async (id: string, done) => {
+    try {
+      const user = await findUserById(id);
+      done(null, user);
+    } catch (error) {
+      done(error, null);
+    }
+  });
+
+  return true;
+}
+
 // Register auth routes
 export function registerAuthRoutes(app: Express) {
   // Setup session middleware
   app.use(getSession());
+  
+  // Setup passport
+  app.use(passport.initialize());
+  app.use(passport.session());
+  
+  // Setup Google OAuth if configured
+  const googleEnabled = setupGoogleOAuth(app);
 
   // Signup
   app.post("/api/auth/signup", async (req, res) => {
@@ -284,4 +354,36 @@ export function registerAuthRoutes(app: Express) {
 
     res.json({ message: "Email verified successfully" });
   });
+
+  // Google OAuth status check
+  app.get("/api/auth/google/status", (req, res) => {
+    res.json({ enabled: googleEnabled });
+  });
+
+  // Google OAuth routes (only if configured)
+  if (googleEnabled) {
+    app.get(
+      "/api/auth/google",
+      passport.authenticate("google", { scope: ["profile", "email"] })
+    );
+
+    app.get(
+      "/api/auth/google/callback",
+      passport.authenticate("google", { failureRedirect: "/auth?error=google_failed" }),
+      (req, res) => {
+        // Set session userId from passport user
+        if (req.user) {
+          (req.session as any).userId = (req.user as any).id;
+        }
+        res.redirect("/");
+      }
+    );
+  } else {
+    // Return error if Google OAuth not configured
+    app.get("/api/auth/google", (req, res) => {
+      res.status(503).json({ 
+        message: "Google sign-in is not configured. Please add GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET." 
+      });
+    });
+  }
 }

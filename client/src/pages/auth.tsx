@@ -96,12 +96,7 @@ export default function AuthPage() {
   };
 
   const handleGoogleLogin = () => {
-    // Google OAuth will be implemented when the integration is set up
-    toast({ 
-      title: 'Coming soon', 
-      description: 'Google sign-in will be available once configured.',
-      variant: 'default'
-    });
+    window.location.href = '/api/auth/google';
   };
 
   if (isLoading) {
