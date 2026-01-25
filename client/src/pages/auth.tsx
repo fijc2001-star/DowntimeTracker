@@ -16,7 +16,7 @@ export default function AuthPage() {
   }, [user, setLocation]);
 
   const handleLogin = () => {
-    window.location.href = '/api/auth/login';
+    window.location.href = '/api/login';
   };
 
   if (isLoading) {
