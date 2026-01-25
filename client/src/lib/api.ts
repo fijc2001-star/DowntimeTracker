@@ -29,7 +29,7 @@ export async function getCurrentUser() {
 }
 
 export async function logout() {
-  return fetchAPI<{ success: boolean }>('/api/logout', { method: 'POST' });
+  return fetchAPI<{ success: boolean }>('/api/auth/logout', { method: 'POST' });
 }
 
 // Process API

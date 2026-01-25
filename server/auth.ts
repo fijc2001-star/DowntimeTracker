@@ -1,0 +1,287 @@
+import { db } from "./db";
+import { users, signupSchema, loginSchema, type SignupInput, type LoginInput, type User } from "@shared/schema";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
+import { randomBytes } from "crypto";
+import type { Express, RequestHandler } from "express";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+
+// Session setup
+export function getSession() {
+  const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+  const pgStore = connectPg(session);
+  const sessionStore = new pgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: false,
+    ttl: sessionTtl,
+    tableName: "sessions",
+  });
+  return session({
+    secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
+    store: sessionStore,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: sessionTtl,
+    },
+  });
+}
+
+// Auth service functions
+export async function createUser(input: SignupInput): Promise<User> {
+  const passwordHash = await bcrypt.hash(input.password, 12);
+  const verificationToken = randomBytes(32).toString("hex");
+  const verificationTokenExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: input.email.toLowerCase(),
+      passwordHash,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      emailVerified: true, // Auto-verify in development (no email service)
+      verificationToken,
+      verificationTokenExpiry,
+      authProvider: "email",
+    })
+    .returning();
+
+  return user;
+}
+
+export async function findUserByEmail(email: string): Promise<User | null> {
+  const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase()));
+  return user || null;
+}
+
+export async function findUserById(id: string): Promise<User | null> {
+  const [user] = await db.select().from(users).where(eq(users.id, id));
+  return user || null;
+}
+
+export async function findUserByGoogleId(googleId: string): Promise<User | null> {
+  const [user] = await db.select().from(users).where(eq(users.googleId, googleId));
+  return user || null;
+}
+
+export async function verifyPassword(user: User, password: string): Promise<boolean> {
+  if (!user.passwordHash) return false;
+  return bcrypt.compare(password, user.passwordHash);
+}
+
+export async function verifyEmail(token: string): Promise<User | null> {
+  const [user] = await db
+    .select()
+    .from(users)
+    .where(eq(users.verificationToken, token));
+
+  if (!user) return null;
+  if (user.verificationTokenExpiry && new Date() > user.verificationTokenExpiry) {
+    return null;
+  }
+
+  const [updatedUser] = await db
+    .update(users)
+    .set({
+      emailVerified: true,
+      verificationToken: null,
+      verificationTokenExpiry: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(users.id, user.id))
+    .returning();
+
+  return updatedUser;
+}
+
+export async function createOrUpdateGoogleUser(profile: {
+  googleId: string;
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  profileImageUrl?: string;
+}): Promise<User> {
+  // Check if user exists by Google ID
+  let user = await findUserByGoogleId(profile.googleId);
+  if (user) {
+    // Update existing user
+    const [updated] = await db
+      .update(users)
+      .set({
+        firstName: profile.firstName,
+        lastName: profile.lastName,
+        profileImageUrl: profile.profileImageUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id))
+      .returning();
+    return updated;
+  }
+
+  // Check if user exists by email
+  user = await findUserByEmail(profile.email);
+  if (user) {
+    // Link Google account to existing user
+    const [updated] = await db
+      .update(users)
+      .set({
+        googleId: profile.googleId,
+        emailVerified: true,
+        authProvider: user.passwordHash ? "both" : "google",
+        profileImageUrl: profile.profileImageUrl,
+        updatedAt: new Date(),
+      })
+      .where(eq(users.id, user.id))
+      .returning();
+    return updated;
+  }
+
+  // Create new user
+  const [newUser] = await db
+    .insert(users)
+    .values({
+      email: profile.email.toLowerCase(),
+      googleId: profile.googleId,
+      firstName: profile.firstName,
+      lastName: profile.lastName,
+      profileImageUrl: profile.profileImageUrl,
+      emailVerified: true,
+      authProvider: "google",
+    })
+    .returning();
+
+  return newUser;
+}
+
+// Middleware to check if user is authenticated
+export const isAuthenticated: RequestHandler = (req, res, next) => {
+  if (req.session && (req.session as any).userId) {
+    return next();
+  }
+  return res.status(401).json({ message: "Unauthorized" });
+};
+
+// Register auth routes
+export function registerAuthRoutes(app: Express) {
+  // Setup session middleware
+  app.use(getSession());
+
+  // Signup
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const data = signupSchema.parse(req.body);
+
+      // Check if user already exists
+      const existingUser = await findUserByEmail(data.email);
+      if (existingUser) {
+        return res.status(400).json({ message: "An account with this email already exists" });
+      }
+
+      const user = await createUser(data);
+
+      // Set session
+      (req.session as any).userId = user.id;
+
+      res.status(201).json({
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Signup error:", error);
+      res.status(500).json({ message: "Failed to create account" });
+    }
+  });
+
+  // Login
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const data = loginSchema.parse(req.body);
+
+      const user = await findUserByEmail(data.email);
+      if (!user) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      if (!user.passwordHash) {
+        return res.status(401).json({ message: "Please sign in with Google" });
+      }
+
+      const isValid = await verifyPassword(user, data.password);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid email or password" });
+      }
+
+      // Set session
+      (req.session as any).userId = user.id;
+
+      res.json({
+        id: user.id,
+        email: user.email,
+        name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      });
+    } catch (error: any) {
+      if (error.name === "ZodError") {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Login error:", error);
+      res.status(500).json({ message: "Failed to login" });
+    }
+  });
+
+  // Logout
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ message: "Failed to logout" });
+      }
+      res.clearCookie("connect.sid");
+      res.json({ success: true });
+    });
+  });
+
+  // Get current user
+  app.get("/api/user", async (req, res) => {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const user = await findUserById(userId);
+    if (!user) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: `${user.firstName || ""} ${user.lastName || ""}`.trim() || user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      profileImageUrl: user.profileImageUrl,
+    });
+  });
+
+  // Email verification
+  app.get("/api/auth/verify/:token", async (req, res) => {
+    const { token } = req.params;
+    const user = await verifyEmail(token);
+
+    if (!user) {
+      return res.status(400).json({ message: "Invalid or expired verification link" });
+    }
+
+    res.json({ message: "Email verified successfully" });
+  });
+}

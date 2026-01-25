@@ -1,13 +1,53 @@
 import React from 'react';
 import { useLocation } from 'wouter';
 import { useCurrentUser } from '@/lib/queries';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Activity, Loader2, Mail, ShieldCheck } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Activity, Loader2, Mail, Lock, User, AlertCircle } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+
+async function signup(data: { email: string; password: string; firstName: string; lastName: string }) {
+  const response = await fetch('/api/auth/signup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to create account');
+  }
+  return response.json();
+}
+
+async function login(data: { email: string; password: string }) {
+  const response = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to login');
+  }
+  return response.json();
+}
 
 export default function AuthPage() {
   const [, setLocation] = useLocation();
   const { data: user, isLoading } = useCurrentUser();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const [activeTab, setActiveTab] = React.useState('login');
+  const [loginData, setLoginData] = React.useState({ email: '', password: '' });
+  const [signupData, setSignupData] = React.useState({ email: '', password: '', firstName: '', lastName: '' });
+  const [error, setError] = React.useState('');
 
   React.useEffect(() => {
     if (user) {
@@ -15,8 +55,53 @@ export default function AuthPage() {
     }
   }, [user, setLocation]);
 
-  const handleLogin = () => {
-    window.location.href = '/api/login';
+  const loginMutation = useMutation({
+    mutationFn: login,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      toast({ title: 'Welcome back!', description: 'You have been logged in successfully.' });
+      setLocation('/');
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+    },
+  });
+
+  const signupMutation = useMutation({
+    mutationFn: signup,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['user'] });
+      toast({ title: 'Account created!', description: 'Your account has been created successfully.' });
+      setLocation('/');
+    },
+    onError: (error: Error) => {
+      setError(error.message);
+    },
+  });
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    loginMutation.mutate(loginData);
+  };
+
+  const handleSignup = (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    if (signupData.password.length < 8) {
+      setError('Password must be at least 8 characters');
+      return;
+    }
+    signupMutation.mutate(signupData);
+  };
+
+  const handleGoogleLogin = () => {
+    // Google OAuth will be implemented when the integration is set up
+    toast({ 
+      title: 'Coming soon', 
+      description: 'Google sign-in will be available once configured.',
+      variant: 'default'
+    });
   };
 
   if (isLoading) {
@@ -45,16 +130,17 @@ export default function AuthPage() {
         </div>
 
         <Card className="border-sidebar-border bg-card/50 backdrop-blur-xl shadow-2xl">
-          <CardHeader className="text-center">
+          <CardHeader className="text-center pb-4">
             <CardTitle>Welcome</CardTitle>
-            <CardDescription>Sign in or create an account to continue</CardDescription>
+            <CardDescription>Sign in to your account or create a new one</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Google OAuth Button */}
             <Button 
-              variant="default" 
-              className="w-full h-14 text-base gap-3"
-              onClick={handleLogin}
-              data-testid="button-login"
+              variant="outline" 
+              className="w-full h-12 text-base gap-3"
+              onClick={handleGoogleLogin}
+              data-testid="button-google-login"
             >
               <svg className="h-5 w-5" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
                 <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
@@ -67,27 +153,152 @@ export default function AuthPage() {
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or</span>
+                <span className="bg-card px-2 text-muted-foreground">Or continue with email</span>
               </div>
             </div>
-            
-            <Button 
-              variant="outline" 
-              className="w-full h-14 text-base gap-3"
-              onClick={handleLogin}
-              data-testid="button-login-email"
-            >
-              <Mail className="h-5 w-5" />
-              Continue with Email
-            </Button>
-            
-            <div className="flex items-start gap-3 p-4 rounded-lg bg-secondary/10 border border-secondary/20">
-              <ShieldCheck className="h-5 w-5 text-primary mt-0.5 shrink-0" />
-              <div className="text-xs text-muted-foreground">
-                <p className="font-medium text-foreground mb-1">Secure Authentication</p>
-                <p>Sign up with a new account or log in with your existing credentials. Your data is protected with industry-standard encryption.</p>
+
+            {error && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-destructive text-sm">
+                <AlertCircle className="h-4 w-4 shrink-0" />
+                {error}
               </div>
-            </div>
+            )}
+
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="login" data-testid="tab-login">Sign In</TabsTrigger>
+                <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="login">
+                <form onSubmit={handleLogin} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="login-email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        id="login-email"
+                        type="email"
+                        placeholder="you@example.com" 
+                        value={loginData.email}
+                        onChange={e => setLoginData({ ...loginData, email: e.target.value })}
+                        className="pl-10"
+                        required
+                        data-testid="input-login-email"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="login-password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        id="login-password"
+                        type="password"
+                        placeholder="Enter your password" 
+                        value={loginData.password}
+                        onChange={e => setLoginData({ ...loginData, password: e.target.value })}
+                        className="pl-10"
+                        required
+                        data-testid="input-login-password"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 text-base"
+                    disabled={loginMutation.isPending}
+                    data-testid="button-login"
+                  >
+                    {loginMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Signing in...</>
+                    ) : (
+                      'Sign In'
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+              
+              <TabsContent value="signup">
+                <form onSubmit={handleSignup} className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-firstname">First Name</Label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input 
+                          id="signup-firstname"
+                          type="text"
+                          placeholder="John" 
+                          value={signupData.firstName}
+                          onChange={e => setSignupData({ ...signupData, firstName: e.target.value })}
+                          className="pl-10"
+                          required
+                          data-testid="input-signup-firstname"
+                        />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="signup-lastname">Last Name</Label>
+                      <Input 
+                        id="signup-lastname"
+                        type="text"
+                        placeholder="Doe" 
+                        value={signupData.lastName}
+                        onChange={e => setSignupData({ ...signupData, lastName: e.target.value })}
+                        required
+                        data-testid="input-signup-lastname"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-email">Email</Label>
+                    <div className="relative">
+                      <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        id="signup-email"
+                        type="email"
+                        placeholder="you@example.com" 
+                        value={signupData.email}
+                        onChange={e => setSignupData({ ...signupData, email: e.target.value })}
+                        className="pl-10"
+                        required
+                        data-testid="input-signup-email"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-password">Password</Label>
+                    <div className="relative">
+                      <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input 
+                        id="signup-password"
+                        type="password"
+                        placeholder="At least 8 characters" 
+                        value={signupData.password}
+                        onChange={e => setSignupData({ ...signupData, password: e.target.value })}
+                        className="pl-10"
+                        required
+                        minLength={8}
+                        data-testid="input-signup-password"
+                      />
+                    </div>
+                  </div>
+                  <Button 
+                    type="submit" 
+                    className="w-full h-12 text-base"
+                    disabled={signupMutation.isPending}
+                    data-testid="button-signup"
+                  >
+                    {signupMutation.isPending ? (
+                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Creating account...</>
+                    ) : (
+                      'Create Account'
+                    )}
+                  </Button>
+                </form>
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
         
