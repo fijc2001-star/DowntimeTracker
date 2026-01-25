@@ -5,7 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/not-found";
 import { Layout } from "@/components/layout";
-import { useAppStore } from "@/lib/store";
+import { useCurrentUser } from "@/lib/queries";
+import { Loader2 } from "lucide-react";
 
 // Pages
 import AuthPage from "@/pages/auth";
@@ -14,15 +15,19 @@ import ProcessView from "@/pages/process-view";
 import NodeView from "@/pages/node-view";
 import AdminPage from "@/pages/admin";
 
-function ProtectedRoute({ component: Component, adminOnly = false }: { component: React.ComponentType, adminOnly?: boolean }) {
-  const { currentUser } = useAppStore();
+function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+  const { data: user, isLoading } = useCurrentUser();
 
-  if (!currentUser) {
-    return <Redirect to="/auth" />;
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
   }
 
-  if (adminOnly && currentUser.role !== 'admin') {
-    return <Redirect to="/" />;
+  if (!user) {
+    return <Redirect to="/auth" />;
   }
 
   return (
@@ -50,11 +55,11 @@ function Router() {
       </Route>
       
       <Route path="/admin">
-        <ProtectedRoute component={AdminPage} adminOnly />
+        <ProtectedRoute component={AdminPage} />
       </Route>
       
       <Route path="/processes">
-         <Redirect to="/" /> {/* Simplified for now, just redirect to dashboard as it lists processes */}
+         <Redirect to="/" />
       </Route>
 
       <Route component={NotFound} />

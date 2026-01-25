@@ -1,22 +1,21 @@
 import React from 'react';
-import { useAppStore } from '@/lib/store';
 import { useLocation, Link } from 'wouter';
+import { useCurrentUser, useLogout } from '@/lib/queries';
 import { LayoutDashboard, Settings, Activity, Power, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const [location, setLocation] = useLocation();
-  const { currentUser, logout } = useAppStore();
+  const [location] = useLocation();
+  const { data: currentUser } = useCurrentUser();
+  const logout = useLogout();
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
 
   if (!currentUser) return <>{children}</>;
 
   const handleLogout = () => {
-    logout();
-    setLocation('/auth');
+    logout.mutate();
   };
 
   const NavItem = ({ href, icon: Icon, label, exact = false }: { href: string, icon: any, label: string, exact?: boolean }) => {
@@ -27,6 +26,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           variant={isActive ? "secondary" : "ghost"} 
           className={`w-full justify-start gap-3 h-12 text-base font-medium ${isActive ? 'bg-sidebar-accent text-sidebar-accent-foreground shadow-sm' : 'text-sidebar-foreground hover:bg-sidebar-accent/50'}`}
           onClick={() => setIsMobileOpen(false)}
+          data-testid={`nav-${label.toLowerCase()}`}
         >
           <Icon className="h-5 w-5" />
           {label}
@@ -47,9 +47,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
       <div className="flex-1 py-6 px-4 space-y-2">
         <NavItem href="/" icon={LayoutDashboard} label="Dashboard" exact />
         <NavItem href="/processes" icon={Activity} label="Processes" />
-        {currentUser.role === 'admin' && (
-          <NavItem href="/admin" icon={Settings} label="Administration" />
-        )}
+        <NavItem href="/admin" icon={Settings} label="Administration" />
       </div>
 
       <div className="p-4 border-t border-sidebar-border bg-sidebar-accent/20">
@@ -60,10 +58,16 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </AvatarFallback>
           </Avatar>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">{currentUser.name}</p>
-            <p className="text-xs text-muted-foreground capitalize">{currentUser.role}</p>
+            <p className="text-sm font-medium text-sidebar-foreground truncate" data-testid="text-user-name">{currentUser.name}</p>
+            <p className="text-xs text-muted-foreground">{currentUser.email}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleLogout} 
+            className="text-muted-foreground hover:text-destructive"
+            data-testid="button-logout"
+          >
             <Power className="h-4 w-4" />
           </Button>
         </div>

@@ -1,29 +1,44 @@
 import React from 'react';
-import { useAppStore } from '@/lib/store';
 import { useRoute, useLocation } from 'wouter';
+import { useNode, useProcess, useDowntimeEvents, useDowntimeReasons, useStartDowntime, useStopDowntime } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbSeparator, BreadcrumbPage } from '@/components/ui/breadcrumb';
-import { Play, Square, Timer, AlertOctagon, History } from 'lucide-react';
+import { Play, Square, Timer, AlertOctagon, History, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 export default function NodeView() {
   const [, params] = useRoute('/node/:id');
-  const nodeId = params?.id;
-  const [, setLocation] = useLocation();
+  const nodeId = params?.id || '';
+  const { toast } = useToast();
   
-  const { nodes, events, reasons, processes, startDowntime, stopDowntime } = useAppStore();
+  const { data: node, isLoading: nodeLoading } = useNode(nodeId);
+  const { data: process } = useProcess(node?.processId || '');
+  const { data: reasons = [] } = useDowntimeReasons();
+  const { data: events = [] } = useDowntimeEvents({ nodeId });
+  
+  const startDowntime = useStartDowntime();
+  const stopDowntime = useStopDowntime();
+  
   const [stopDialogOpen, setStopDialogOpen] = React.useState(false);
   const [selectedReason, setSelectedReason] = React.useState<string>('');
   
-  const node = nodes.find(n => n.id === nodeId);
-  if (!node) return <div>Node not found</div>;
+  if (nodeLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
   
-  const process = processes.find(p => p.id === node.processId);
+  if (!node) {
+    return <div className="text-center py-12 text-muted-foreground">Node not found</div>;
+  }
   
-  const activeEvent = events.find(e => e.nodeId === node.id && !e.endTime);
+  const activeEvent = node.activeEvent;
   const isDown = node.status === 'down';
 
   // Tick for timer update
@@ -34,15 +49,43 @@ export default function NodeView() {
     return () => clearInterval(interval);
   }, [isDown]);
 
-  const handleStop = () => {
+  const handleStart = async () => {
+    try {
+      await startDowntime.mutateAsync(node.id);
+      toast({
+        title: 'Downtime Started',
+        description: `${node.name} is now marked as down.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to start downtime',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleStop = async () => {
     if (!selectedReason) return;
-    stopDowntime(node.id, selectedReason);
-    setStopDialogOpen(false);
-    setSelectedReason('');
+    try {
+      await stopDowntime.mutateAsync({ nodeId: node.id, reasonId: selectedReason });
+      setStopDialogOpen(false);
+      setSelectedReason('');
+      toast({
+        title: 'Downtime Ended',
+        description: `${node.name} is now running.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to stop downtime',
+        variant: 'destructive',
+      });
+    }
   };
 
   const recentEvents = events
-    .filter(e => e.nodeId === node.id && e.endTime)
+    .filter(e => e.endTime)
     .sort((a, b) => new Date(b.endTime!).getTime() - new Date(a.endTime!).getTime())
     .slice(0, 5);
 
@@ -68,14 +111,14 @@ export default function NodeView() {
       <Card className="border-2 shadow-xl overflow-hidden">
         <div className={`h-2 w-full ${isDown ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
         <CardHeader className="text-center pb-8 pt-8">
-          <CardTitle className="text-4xl font-display uppercase tracking-wider">{node.name}</CardTitle>
+          <CardTitle className="text-4xl font-display uppercase tracking-wider" data-testid="text-node-name">{node.name}</CardTitle>
           <CardDescription className="text-lg font-mono">ID: {node.id}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-8 pb-12">
           
           {/* Status Display */}
           <div className="text-center space-y-2">
-            <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-full text-xl font-bold border ${isDown ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-success/20 text-success border-success/30'}`}>
+            <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-full text-xl font-bold border ${isDown ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-success/20 text-success border-success/30'}`} data-testid="status-badge">
               {isDown ? (
                 <><AlertOctagon className="h-6 w-6" /> PRODUCTION STOPPED</>
               ) : (
@@ -84,7 +127,7 @@ export default function NodeView() {
             </div>
             
             {isDown && activeEvent && (
-              <div className="text-5xl font-mono font-bold text-destructive mt-4 tabular-nums">
+              <div className="text-5xl font-mono font-bold text-destructive mt-4 tabular-nums" data-testid="text-downtime-duration">
                 {formatDistanceToNow(new Date(activeEvent.startTime))}
               </div>
             )}
@@ -97,8 +140,14 @@ export default function NodeView() {
                  size="lg" 
                  className="flex-1 h-32 text-2xl font-bold bg-success hover:bg-success/90 text-white shadow-[0_0_30px_hsl(var(--success)/0.3)] transition-all hover:scale-[1.02]"
                  onClick={() => setStopDialogOpen(true)}
+                 disabled={stopDowntime.isPending}
+                 data-testid="button-resume"
                >
-                 <Play className="h-8 w-8 mr-3 fill-current" />
+                 {stopDowntime.isPending ? (
+                   <Loader2 className="h-8 w-8 mr-3 animate-spin" />
+                 ) : (
+                   <Play className="h-8 w-8 mr-3 fill-current" />
+                 )}
                  RESUME
                </Button>
              ) : (
@@ -106,9 +155,15 @@ export default function NodeView() {
                  size="lg" 
                  variant="destructive"
                  className="flex-1 h-32 text-2xl font-bold shadow-[0_0_30px_hsl(var(--destructive)/0.3)] transition-all hover:scale-[1.02]"
-                 onClick={() => startDowntime(node.id)}
+                 onClick={handleStart}
+                 disabled={startDowntime.isPending}
+                 data-testid="button-stop"
                >
-                 <Square className="h-8 w-8 mr-3 fill-current" />
+                 {startDowntime.isPending ? (
+                   <Loader2 className="h-8 w-8 mr-3 animate-spin" />
+                 ) : (
+                   <Square className="h-8 w-8 mr-3 fill-current" />
+                 )}
                  STOP
                </Button>
              )}
@@ -134,7 +189,7 @@ export default function NodeView() {
                 const duration = event.endTime ? formatDistanceToNow(new Date(event.startTime), { addSuffix: false }) : 'Ongoing';
                 
                 return (
-                  <div key={event.id} className="flex items-center justify-between p-3 rounded bg-secondary/20 border border-secondary/30">
+                  <div key={event.id} className="flex items-center justify-between p-3 rounded bg-secondary/20 border border-secondary/30" data-testid={`event-${event.id}`}>
                     <div>
                       <div className="font-medium">{reason?.label || 'Unknown Reason'}</div>
                       <div className="text-xs text-muted-foreground font-mono">
@@ -152,33 +207,40 @@ export default function NodeView() {
         </CardContent>
       </Card>
 
-      {/* Stop Dialog */}
+      {/* Stop Downtime Dialog */}
       <Dialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Log Downtime Reason</DialogTitle>
+            <DialogTitle>Resume Production</DialogTitle>
             <DialogDescription>
-              Select the primary cause for this downtime event before resuming production.
+              Select the reason for the downtime that just ended.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
             <Select value={selectedReason} onValueChange={setSelectedReason}>
-              <SelectTrigger className="h-12 text-lg">
-                <SelectValue placeholder="Select reason..." />
+              <SelectTrigger data-testid="select-reason">
+                <SelectValue placeholder="Select a reason" />
               </SelectTrigger>
               <SelectContent>
                 {reasons.map(reason => (
-                  <SelectItem key={reason.id} value={reason.id}>
-                    {reason.label} <span className="text-xs text-muted-foreground ml-2">({reason.category})</span>
+                  <SelectItem key={reason.id} value={reason.id} data-testid={`option-reason-${reason.id}`}>
+                    {reason.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setStopDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleStop} disabled={!selectedReason} className="bg-success text-white hover:bg-success/90">
-              Confirm & Resume
+            <Button variant="outline" onClick={() => setStopDialogOpen(false)} data-testid="button-cancel">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleStop} 
+              disabled={!selectedReason || stopDowntime.isPending}
+              data-testid="button-confirm-resume"
+            >
+              {stopDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Resume
             </Button>
           </DialogFooter>
         </DialogContent>

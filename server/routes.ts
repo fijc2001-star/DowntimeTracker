@@ -19,6 +19,30 @@ export async function registerRoutes(
   // Helper to get user ID from request
   const getUserId = (req: any): string => req.user?.claims?.sub;
 
+  // ===== USER ENDPOINTS =====
+  
+  // Get current user info
+  app.get("/api/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const user = req.user;
+      res.json({
+        id: user.claims.sub,
+        email: user.claims.email || '',
+        name: user.claims.name || user.claims.email || 'User',
+      });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+
+  // Logout
+  app.post("/api/logout", async (req, res) => {
+    req.logout(() => {
+      res.json({ success: true });
+    });
+  });
+
   // ===== PROCESS ENDPOINTS =====
   
   // Get all processes accessible to user
