@@ -326,12 +326,29 @@ export function registerAuthRoutes(app: Express) {
 
   // Logout
   app.post("/api/auth/logout", (req, res) => {
-    req.session.destroy((err) => {
-      if (err) {
-        return res.status(500).json({ message: "Failed to logout" });
+    // Logout from passport first
+    req.logout((logoutErr) => {
+      if (logoutErr) {
+        console.error("Passport logout error:", logoutErr);
       }
-      res.clearCookie("connect.sid");
-      res.json({ success: true });
+      
+      // Then destroy session
+      req.session.destroy((err) => {
+        if (err) {
+          return res.status(500).json({ message: "Failed to logout" });
+        }
+        
+        // Clear cookie with matching options
+        const isProduction = !!(process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT);
+        res.clearCookie("connect.sid", {
+          path: "/",
+          httpOnly: true,
+          secure: isProduction,
+          sameSite: "lax",
+        });
+        
+        res.json({ success: true });
+      });
     });
   });
 
