@@ -178,8 +178,8 @@ function setupGoogleOAuth(app: Express) {
   }
 
   // Determine callback URL based on environment
-  const callbackURL = process.env.REPL_SLUG 
-    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co/api/auth/google/callback`
+  const callbackURL = process.env.REPLIT_DEV_DOMAIN 
+    ? `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/google/callback`
     : "http://localhost:5000/api/auth/google/callback";
 
   passport.use(
