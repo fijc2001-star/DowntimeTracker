@@ -178,9 +178,18 @@ function setupGoogleOAuth(app: Express) {
   }
 
   // Determine callback URL based on environment
-  const callbackURL = process.env.REPLIT_DEV_DOMAIN 
-    ? `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/google/callback`
-    : "http://localhost:5000/api/auth/google/callback";
+  let callbackURL: string;
+  if (process.env.REPLIT_DEPLOYMENT) {
+    // Production deployment
+    callbackURL = "https://downtime-tracker.replit.app/api/auth/google/callback";
+  } else if (process.env.REPLIT_DEV_DOMAIN) {
+    // Development on Replit
+    callbackURL = `https://${process.env.REPLIT_DEV_DOMAIN}/api/auth/google/callback`;
+  } else {
+    // Local development
+    callbackURL = "http://localhost:5000/api/auth/google/callback";
+  }
+  console.log("Google OAuth callback URL:", callbackURL);
 
   passport.use(
     new GoogleStrategy(
