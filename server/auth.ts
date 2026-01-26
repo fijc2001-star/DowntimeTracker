@@ -395,7 +395,10 @@ export function registerAuthRoutes(app: Express) {
   if (googleEnabled) {
     app.get(
       "/api/auth/google",
-      passport.authenticate("google", { scope: ["profile", "email"] })
+      passport.authenticate("google", { 
+        scope: ["profile", "email"],
+        prompt: "select_account"  // Force account selection every time
+      })
     );
 
     app.get(
