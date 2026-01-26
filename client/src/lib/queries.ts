@@ -29,7 +29,7 @@ export function useLogout() {
     mutationFn: api.logout,
     onSuccess: () => {
       queryClient.clear();
-      window.location.href = '/';
+      window.location.href = '/auth';
     },
   });
 }

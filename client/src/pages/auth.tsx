@@ -133,7 +133,7 @@ export default function AuthPage() {
             {/* Google OAuth Button */}
             <Button 
               variant="outline" 
-              className="w-full h-12 text-base gap-3"
+              className="w-full h-12 text-base gap-3 cursor-pointer"
               onClick={handleGoogleLogin}
               data-testid="button-google-login"
             >
