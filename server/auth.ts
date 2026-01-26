@@ -19,14 +19,19 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
+  const isProduction = !!(process.env.NODE_ENV === "production" || process.env.REPLIT_DEPLOYMENT);
+  
   return session({
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
+    proxy: isProduction, // Trust proxy in production
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
+      secure: isProduction,
+      sameSite: isProduction ? "lax" : "lax",
       maxAge: sessionTtl,
     },
   });
