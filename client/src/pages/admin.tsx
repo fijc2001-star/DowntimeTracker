@@ -366,7 +366,14 @@ function ProcessPermissionsCard({
 }
 
 export default function AdminPage() {
-  const { processes, nodes, addProcess, addNode } = useAppStore();
+  const { addProcess, addNode } = useAppStore();
+  const { data: ownedProcesses = [] } = useMyOwnedProcesses();
+  const { data: allNodes = [] } = useNodes();
+  
+  // Filter nodes to only show those belonging to owned processes
+  const ownedProcessIds = new Set(ownedProcesses.map(p => p.id));
+  const ownedNodes = allNodes.filter(n => ownedProcessIds.has(n.processId));
+  
   const [newProcessOpen, setNewProcessOpen] = React.useState(false);
   const [newNodeOpen, setNewNodeOpen] = React.useState(false);
   
@@ -450,18 +457,18 @@ export default function AdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {processes.length === 0 ? (
+            {ownedProcesses.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No processes configured. Add your first process to get started.
+                  No processes you own. Create a new process to get started.
                 </TableCell>
               </TableRow>
             ) : (
-              processes.map(p => (
+              ownedProcesses.map(p => (
                 <TableRow key={p.id} data-testid={`row-process-${p.id}`}>
                   <TableCell className="font-mono text-xs">{p.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{p.description}</TableCell>
+                  <TableCell className="text-muted-foreground">{p.description || '-'}</TableCell>
                   <TableCell className="text-right">
                     <Button variant="ghost" size="icon" className="h-8 w-8">
                       <Settings2 className="h-4 w-4" />
@@ -507,7 +514,7 @@ export default function AdminPage() {
                       <SelectValue placeholder="Select a process" />
                     </SelectTrigger>
                     <SelectContent>
-                      {processes.map(p => (
+                      {ownedProcesses.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -534,20 +541,20 @@ export default function AdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {nodes.length === 0 ? (
+            {ownedNodes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No nodes configured. Add nodes to your processes to track equipment.
+                  No nodes in your processes. Add nodes to track equipment.
                 </TableCell>
               </TableRow>
             ) : (
-              nodes.map(n => {
-                const process = processes.find(p => p.id === n.processId);
+              ownedNodes.map(n => {
+                const process = ownedProcesses.find(p => p.id === n.processId);
                 return (
                   <TableRow key={n.id} data-testid={`row-node-${n.id}`}>
                     <TableCell className="font-mono text-xs">{n.id.substring(0, 8)}...</TableCell>
                     <TableCell className="font-medium">{n.name}</TableCell>
-                    <TableCell>{process?.name || 'Orphaned'}</TableCell>
+                    <TableCell>{process?.name || 'Unknown'}</TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                         n.status === 'down' 
