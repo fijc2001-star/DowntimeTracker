@@ -8,7 +8,7 @@ import { relations } from "drizzle-orm";
 export * from "./models/auth";
 
 // Enums
-export const roleEnum = pgEnum("role", ["admin", "operator"]);
+export const roleEnum = pgEnum("role", ["owner", "admin", "operator"]);
 export const downtimeReasonCategoryEnum = pgEnum("downtime_reason_category", ["mechanical", "electrical", "operational", "external"]);
 
 // Processes table

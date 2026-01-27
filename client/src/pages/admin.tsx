@@ -335,24 +335,30 @@ function ProcessPermissionsCard({
                   </TableCell>
                   <TableCell>
                     <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                      perm.role === 'admin' 
-                        ? 'bg-primary/10 text-primary' 
-                        : 'bg-secondary/50 text-secondary-foreground'
+                      perm.role === 'owner' 
+                        ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400'
+                        : perm.role === 'admin' 
+                          ? 'bg-primary/10 text-primary' 
+                          : 'bg-secondary/50 text-secondary-foreground'
                     }`}>
                       {perm.role.toUpperCase()}
                     </span>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 hover:text-destructive"
-                      onClick={() => onRevoke(perm.id)}
-                      disabled={isRevoking}
-                      data-testid={`button-revoke-${perm.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {perm.role === 'owner' ? (
+                      <span className="text-xs text-muted-foreground">Cannot revoke</span>
+                    ) : (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8 hover:text-destructive"
+                        onClick={() => onRevoke(perm.id)}
+                        disabled={isRevoking}
+                        data-testid={`button-revoke-${perm.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               );

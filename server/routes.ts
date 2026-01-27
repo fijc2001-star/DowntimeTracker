@@ -484,11 +484,15 @@ export async function registerRoutes(
       const permissionId = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
       
       // Get the permission to check access
-      const perms = await storage.getUserPermissions(userId);
-      const targetPerm = perms.find(p => p.id === permissionId);
+      const targetPerm = await storage.getPermission(permissionId);
       
       if (!targetPerm) {
         return res.status(404).json({ message: "Permission not found" });
+      }
+      
+      // Prevent deletion of owner permissions
+      if (targetPerm.role === 'owner') {
+        return res.status(403).json({ message: "Cannot revoke owner access. Delete the process instead." });
       }
       
       // Check if user has admin rights to modify this permission

@@ -66,11 +66,11 @@ export class DatabaseStorage implements IStorage {
   async createProcess(processData: InsertProcess, creatorId: string): Promise<Process> {
     const [process] = await db.insert(processes).values(processData).returning();
     
-    // Grant admin access to creator
+    // Grant owner access to creator (owner cannot be revoked)
     await db.insert(userPermissions).values({
       userId: creatorId,
       processId: process.id,
-      role: 'admin',
+      role: 'owner',
     });
     
     return process;
@@ -229,6 +229,11 @@ export class DatabaseStorage implements IStorage {
     return permission;
   }
 
+  async getPermission(id: string): Promise<UserPermission | undefined> {
+    const [permission] = await db.select().from(userPermissions).where(eq(userPermissions.id, id));
+    return permission;
+  }
+
   async deletePermission(id: string): Promise<void> {
     await db.delete(userPermissions).where(eq(userPermissions.id, id));
   }
@@ -244,8 +249,9 @@ export class DatabaseStorage implements IStorage {
     
     if (!permission) return false;
     if (!requiredRole) return true;
-    if (requiredRole === 'operator') return true; // Both admin and operator satisfy
-    return permission.role === 'admin';
+    if (requiredRole === 'operator') return true; // owner, admin, and operator all satisfy
+    // 'owner' and 'admin' both satisfy admin requirement
+    return permission.role === 'admin' || permission.role === 'owner';
   }
 
   async hasNodeAccess(userId: string, nodeId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean> {
@@ -260,7 +266,7 @@ export class DatabaseStorage implements IStorage {
     if (nodePerm) {
       if (!requiredRole) return true;
       if (requiredRole === 'operator') return true;
-      return nodePerm.role === 'admin';
+      return nodePerm.role === 'admin' || nodePerm.role === 'owner';
     }
     
     // Check if user has access via process permission
@@ -277,7 +283,8 @@ export class DatabaseStorage implements IStorage {
     if (!processPerm) return false;
     if (!requiredRole) return true;
     if (requiredRole === 'operator') return true;
-    return processPerm.role === 'admin';
+    // 'owner' and 'admin' both satisfy admin requirement
+    return processPerm.role === 'admin' || processPerm.role === 'owner';
   }
 
   async getUserAccessibleProcesses(userId: string): Promise<Process[]> {
@@ -334,11 +341,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserOwnedProcesses(userId: string): Promise<Process[]> {
+    // Get processes where user is owner or admin (both can manage the process)
     const perms = await db.select({ processId: userPermissions.processId })
       .from(userPermissions)
       .where(and(
         eq(userPermissions.userId, userId),
-        eq(userPermissions.role, 'admin'),
+        sql`${userPermissions.role} IN ('owner', 'admin')`,
         sql`${userPermissions.processId} IS NOT NULL`
       ));
     
