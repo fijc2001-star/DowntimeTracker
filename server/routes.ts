@@ -29,10 +29,10 @@ export async function registerRoutes(
       // Add role information for each process
       const processesWithRoles = await Promise.all(
         processes.map(async (process) => {
-          const hasAdmin = await storage.hasProcessAccess(userId, process.id, 'admin');
+          const role = await storage.getUserProcessRole(userId, process.id);
           return {
             ...process,
-            userRole: hasAdmin ? 'admin' : 'operator',
+            userRole: role || 'operator',
           };
         })
       );
@@ -72,8 +72,8 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Process not found" });
       }
       
-      const hasAdmin = await storage.hasProcessAccess(userId, processId, 'admin');
-      res.json({ ...process, userRole: hasAdmin ? 'admin' : 'operator' });
+      const role = await storage.getUserProcessRole(userId, processId);
+      res.json({ ...process, userRole: role || 'operator' });
     } catch (error) {
       console.error("Error fetching process:", error);
       res.status(500).json({ message: "Failed to fetch process" });
@@ -147,12 +147,12 @@ export async function registerRoutes(
       // Add role and status information for each node
       const nodesWithInfo = await Promise.all(
         nodes.map(async (node) => {
-          const hasAdmin = await storage.hasNodeAccess(userId, node.id, 'admin');
+          const role = await storage.getUserNodeRole(userId, node.id);
           const activeEvent = await storage.getActiveDowntimeEvent(node.id);
           
           return {
             ...node,
-            userRole: hasAdmin ? 'admin' : 'operator',
+            userRole: role || 'operator',
             status: activeEvent ? 'down' : 'running',
             activeEvent: activeEvent || null,
           };
@@ -182,12 +182,12 @@ export async function registerRoutes(
         return res.status(404).json({ message: "Node not found" });
       }
       
-      const hasAdmin = await storage.hasNodeAccess(userId, nodeId, 'admin');
+      const role = await storage.getUserNodeRole(userId, nodeId);
       const activeEvent = await storage.getActiveDowntimeEvent(nodeId);
       
       res.json({
         ...node,
-        userRole: hasAdmin ? 'admin' : 'operator',
+        userRole: role || 'operator',
         status: activeEvent ? 'down' : 'running',
         activeEvent: activeEvent || null,
       });

@@ -234,6 +234,43 @@ export class DatabaseStorage implements IStorage {
     return permission;
   }
 
+  async getUserProcessRole(userId: string, processId: string): Promise<'owner' | 'admin' | 'operator' | null> {
+    const [permission] = await db.select().from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        eq(userPermissions.processId, processId)
+      ))
+      .limit(1);
+    return permission?.role as 'owner' | 'admin' | 'operator' | null;
+  }
+
+  async getUserNodeRole(userId: string, nodeId: string): Promise<'owner' | 'admin' | 'operator' | null> {
+    // Check direct node permission first
+    const [nodePerm] = await db.select().from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        eq(userPermissions.nodeId, nodeId)
+      ))
+      .limit(1);
+    
+    if (nodePerm) {
+      return nodePerm.role as 'owner' | 'admin' | 'operator';
+    }
+    
+    // Check process-level permission
+    const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId));
+    if (!node) return null;
+    
+    const [processPerm] = await db.select().from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        eq(userPermissions.processId, node.processId)
+      ))
+      .limit(1);
+    
+    return processPerm?.role as 'owner' | 'admin' | 'operator' | null;
+  }
+
   async deletePermission(id: string): Promise<void> {
     await db.delete(userPermissions).where(eq(userPermissions.id, id));
   }
