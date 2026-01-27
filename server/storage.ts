@@ -103,12 +103,17 @@ export class DatabaseStorage implements IStorage {
   async createNode(nodeData: InsertNode, creatorId: string): Promise<Node> {
     const [node] = await db.insert(nodes).values(nodeData).returning();
     
-    // Grant admin access to creator
-    await db.insert(userPermissions).values({
-      userId: creatorId,
-      nodeId: node.id,
-      role: 'admin',
-    });
+    // Only grant node-level admin if user doesn't already have process-level owner/admin access
+    const processRole = await this.getUserProcessRole(creatorId, nodeData.processId);
+    if (!processRole || processRole === 'operator') {
+      // User doesn't have admin/owner access to process, grant node-level admin
+      await db.insert(userPermissions).values({
+        userId: creatorId,
+        nodeId: node.id,
+        role: 'admin',
+      });
+    }
+    // If user is owner/admin of process, they already have access to all nodes
     
     return node;
   }
@@ -191,6 +196,7 @@ export class DatabaseStorage implements IStorage {
   async getProcessPermissionsWithUsers(processId: string): Promise<(UserPermission & { user?: { email: string; firstName?: string | null; lastName?: string | null } })[]> {
     const { users } = await import("@shared/schema");
     
+    // Get all permissions (process-level and node-level for this process)
     const permissions = await db.select({
       id: userPermissions.id,
       userId: userPermissions.userId,
@@ -209,7 +215,21 @@ export class DatabaseStorage implements IStorage {
       sql`${userPermissions.nodeId} IN (SELECT id FROM nodes WHERE process_id = ${processId})`
     ));
     
-    return permissions.map(p => ({
+    // Filter out redundant node-level permissions where user has process-level owner/admin
+    const processLevelUsers = new Set(
+      permissions
+        .filter(p => p.processId === processId && (p.role === 'owner' || p.role === 'admin'))
+        .map(p => p.userId)
+    );
+    
+    const filteredPermissions = permissions.filter(p => {
+      // Keep all process-level permissions
+      if (p.processId === processId) return true;
+      // Keep node-level permissions only if user doesn't have process-level owner/admin
+      return !processLevelUsers.has(p.userId);
+    });
+    
+    return filteredPermissions.map(p => ({
       id: p.id,
       userId: p.userId,
       processId: p.processId,
