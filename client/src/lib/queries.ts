@@ -190,3 +190,42 @@ export function useDeletePermission() {
     },
   });
 }
+
+// Get all users (for authorization assignment)
+export function useAllUsers() {
+  return useQuery({
+    queryKey: ['users'],
+    queryFn: api.getAllUsers,
+  });
+}
+
+// Get processes where current user is admin (owner)
+export function useMyOwnedProcesses() {
+  return useQuery({
+    queryKey: ['processes', 'owned'],
+    queryFn: api.getMyOwnedProcesses,
+  });
+}
+
+// Assign permission with process-level expansion
+export function useAssignPermission() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: api.assignPermission,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      queryClient.invalidateQueries({ queryKey: ['processes'] });
+    },
+  });
+}
+
+// Revoke permission (alias for deletePermission for clearer naming)
+export function useRevokePermission() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deletePermission(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+    },
+  });
+}

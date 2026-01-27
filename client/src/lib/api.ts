@@ -116,7 +116,7 @@ export async function stopDowntime(nodeId: string, reasonId: string) {
 
 // Permission API
 export async function getProcessPermissions(processId: string) {
-  return fetchAPI<UserPermission[]>(`/api/permissions/process/${processId}`);
+  return fetchAPI<(UserPermission & { user?: { email: string; firstName?: string; lastName?: string } })[]>(`/api/permissions/process/${processId}`);
 }
 
 export async function createPermission(data: InsertUserPermission) {
@@ -129,5 +129,23 @@ export async function createPermission(data: InsertUserPermission) {
 export async function deletePermission(id: string) {
   return fetchAPI<void>(`/api/permissions/${id}`, {
     method: 'DELETE',
+  });
+}
+
+// User API (for authorization)
+export async function getAllUsers() {
+  return fetchAPI<{ id: string; email: string; firstName?: string; lastName?: string }[]>('/api/users');
+}
+
+// Get processes where user is admin (owner)
+export async function getMyOwnedProcesses() {
+  return fetchAPI<Process[]>('/api/processes/owned');
+}
+
+// Assign permission with process-level node expansion
+export async function assignPermission(data: { userId: string; processId?: string; nodeId?: string; role: 'admin' | 'operator' }) {
+  return fetchAPI<UserPermission>('/api/permissions/assign', {
+    method: 'POST',
+    body: JSON.stringify(data),
   });
 }

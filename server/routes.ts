@@ -344,9 +344,34 @@ export async function registerRoutes(
     }
   });
 
+  // ===== USER ENDPOINTS =====
+  
+  // Get all users (for authorization assignment)
+  app.get("/api/users", isAuthenticated, async (req, res) => {
+    try {
+      const users = await storage.getAllUsers();
+      res.json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users" });
+    }
+  });
+
+  // Get processes where user is admin (owned processes)
+  app.get("/api/processes/owned", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const ownedProcesses = await storage.getUserOwnedProcesses(userId);
+      res.json(ownedProcesses);
+    } catch (error) {
+      console.error("Error fetching owned processes:", error);
+      res.status(500).json({ message: "Failed to fetch owned processes" });
+    }
+  });
+
   // ===== PERMISSION ENDPOINTS =====
   
-  // Get permissions for a process (admin only)
+  // Get permissions for a process (admin only) - includes user info
   app.get("/api/permissions/process/:processId", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
@@ -357,11 +382,66 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Admin access required" });
       }
       
-      const permissions = await storage.getProcessPermissions(processId);
+      const permissions = await storage.getProcessPermissionsWithUsers(processId);
       res.json(permissions);
     } catch (error) {
       console.error("Error fetching permissions:", error);
       res.status(500).json({ message: "Failed to fetch permissions" });
+    }
+  });
+
+  // Assign permission with process-level node expansion
+  app.post("/api/permissions/assign", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { userId: targetUserId, processId, nodeId, role } = req.body;
+      
+      if (!targetUserId || !role) {
+        return res.status(400).json({ message: "userId and role are required" });
+      }
+      
+      if (!processId && !nodeId) {
+        return res.status(400).json({ message: "Must specify processId or nodeId" });
+      }
+      
+      // Check admin access
+      if (processId) {
+        const hasAdmin = await storage.hasProcessAccess(userId, processId, 'admin');
+        if (!hasAdmin) {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+      } else if (nodeId) {
+        const hasAdmin = await storage.hasNodeAccess(userId, nodeId, 'admin');
+        if (!hasAdmin) {
+          return res.status(403).json({ message: "Admin access required" });
+        }
+      }
+      
+      // If assigning to process, create a process-level permission
+      if (processId && !nodeId) {
+        const permission = await storage.createPermission({
+          userId: targetUserId,
+          processId,
+          role,
+        });
+        return res.status(201).json(permission);
+      }
+      
+      // If assigning to specific node
+      if (nodeId) {
+        const permission = await storage.createPermission({
+          userId: targetUserId,
+          nodeId,
+          processId: processId || null,
+          role,
+        });
+        return res.status(201).json(permission);
+      }
+      
+      res.status(400).json({ message: "Invalid assignment" });
+    } catch (error) {
+      console.error("Error assigning permission:", error);
+      res.status(500).json({ message: "Failed to assign permission" });
     }
   });
 

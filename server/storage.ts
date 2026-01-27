@@ -37,6 +37,7 @@ export interface IStorage {
   // Permission operations
   getUserPermissions(userId: string): Promise<UserPermission[]>;
   getProcessPermissions(processId: string): Promise<UserPermission[]>;
+  getProcessPermissionsWithUsers(processId: string): Promise<(UserPermission & { user?: { email: string; firstName?: string | null; lastName?: string | null } })[]>;
   createPermission(permission: InsertUserPermission): Promise<UserPermission>;
   deletePermission(id: string): Promise<void>;
   
@@ -45,6 +46,10 @@ export interface IStorage {
   hasNodeAccess(userId: string, nodeId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean>;
   getUserAccessibleProcesses(userId: string): Promise<Process[]>;
   getUserAccessibleNodes(userId: string): Promise<Node[]>;
+  getUserOwnedProcesses(userId: string): Promise<Process[]>;
+  
+  // User operations
+  getAllUsers(): Promise<{ id: string; email: string; firstName?: string | null; lastName?: string | null }[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -183,6 +188,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(userPermissions.processId, processId));
   }
 
+  async getProcessPermissionsWithUsers(processId: string): Promise<(UserPermission & { user?: { email: string; firstName?: string | null; lastName?: string | null } })[]> {
+    const { users } = await import("@shared/schema");
+    
+    const permissions = await db.select({
+      id: userPermissions.id,
+      userId: userPermissions.userId,
+      processId: userPermissions.processId,
+      nodeId: userPermissions.nodeId,
+      role: userPermissions.role,
+      createdAt: userPermissions.createdAt,
+      userEmail: users.email,
+      userFirstName: users.firstName,
+      userLastName: users.lastName,
+    })
+    .from(userPermissions)
+    .leftJoin(users, eq(userPermissions.userId, users.id))
+    .where(or(
+      eq(userPermissions.processId, processId),
+      sql`${userPermissions.nodeId} IN (SELECT id FROM nodes WHERE process_id = ${processId})`
+    ));
+    
+    return permissions.map(p => ({
+      id: p.id,
+      userId: p.userId,
+      processId: p.processId,
+      nodeId: p.nodeId,
+      role: p.role,
+      createdAt: p.createdAt,
+      user: p.userEmail ? {
+        email: p.userEmail,
+        firstName: p.userFirstName,
+        lastName: p.userLastName,
+      } : undefined,
+    }));
+  }
+
   async createPermission(permissionData: InsertUserPermission): Promise<UserPermission> {
     const [permission] = await db.insert(userPermissions).values(permissionData).returning();
     return permission;
@@ -290,6 +331,35 @@ export class DatabaseStorage implements IStorage {
     );
     
     return uniqueNodes;
+  }
+
+  async getUserOwnedProcesses(userId: string): Promise<Process[]> {
+    const perms = await db.select({ processId: userPermissions.processId })
+      .from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        eq(userPermissions.role, 'admin'),
+        sql`${userPermissions.processId} IS NOT NULL`
+      ));
+    
+    if (perms.length === 0) return [];
+    
+    const processIds = perms.map(p => p.processId).filter((id): id is string => id !== null);
+    return await db.select().from(processes)
+      .where(and(
+        inArray(processes.id, processIds),
+        eq(processes.isActive, true)
+      ));
+  }
+
+  async getAllUsers(): Promise<{ id: string; email: string; firstName?: string | null; lastName?: string | null }[]> {
+    const { users } = await import("@shared/schema");
+    return await db.select({
+      id: users.id,
+      email: users.email,
+      firstName: users.firstName,
+      lastName: users.lastName,
+    }).from(users);
   }
 }
 
