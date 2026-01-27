@@ -1,5 +1,4 @@
 import React from 'react';
-import { useAppStore } from '@/lib/store';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Plus, Trash2, Settings2, ChevronDown, ChevronRight, Users, Shield, UserPlus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions } from '@/lib/queries';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode } from '@/lib/queries';
 import { useToast } from '@/hooks/use-toast';
 
 function CollapsibleSection({ 
@@ -366,9 +365,11 @@ function ProcessPermissionsCard({
 }
 
 export default function AdminPage() {
-  const { addProcess, addNode } = useAppStore();
   const { data: ownedProcesses = [] } = useMyOwnedProcesses();
   const { data: allNodes = [] } = useNodes();
+  const createProcess = useCreateProcess();
+  const createNode = useCreateNode();
+  const { toast } = useToast();
   
   // Filter nodes to only show those belonging to owned processes
   const ownedProcessIds = new Set(ownedProcesses.map(p => p.id));
@@ -384,17 +385,37 @@ export default function AdminPage() {
   const [nodeProcId, setNodeProcId] = React.useState('');
 
   const handleAddProcess = () => {
-    addProcess({ name: procName, description: procDesc });
-    setProcName('');
-    setProcDesc('');
-    setNewProcessOpen(false);
+    createProcess.mutate(
+      { name: procName, description: procDesc },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Process created successfully' });
+          setProcName('');
+          setProcDesc('');
+          setNewProcessOpen(false);
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to create process', variant: 'destructive' });
+        },
+      }
+    );
   };
 
   const handleAddNode = () => {
-    addNode({ name: nodeName, processId: nodeProcId });
-    setNodeName('');
-    setNodeProcId('');
-    setNewNodeOpen(false);
+    createNode.mutate(
+      { name: nodeName, processId: nodeProcId },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Node created successfully' });
+          setNodeName('');
+          setNodeProcId('');
+          setNewNodeOpen(false);
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to create node', variant: 'destructive' });
+        },
+      }
+    );
   };
 
   return (

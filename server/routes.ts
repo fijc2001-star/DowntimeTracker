@@ -44,6 +44,18 @@ export async function registerRoutes(
     }
   });
 
+  // Get processes where user is admin (owned processes) - must be before :id route
+  app.get("/api/processes/owned", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const ownedProcesses = await storage.getUserOwnedProcesses(userId);
+      res.json(ownedProcesses);
+    } catch (error) {
+      console.error("Error fetching owned processes:", error);
+      res.status(500).json({ message: "Failed to fetch owned processes" });
+    }
+  });
+
   // Get single process
   app.get("/api/processes/:id", isAuthenticated, async (req, res) => {
     try {
@@ -354,18 +366,6 @@ export async function registerRoutes(
     } catch (error) {
       console.error("Error fetching users:", error);
       res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
-
-  // Get processes where user is admin (owned processes)
-  app.get("/api/processes/owned", isAuthenticated, async (req, res) => {
-    try {
-      const userId = getUserId(req);
-      const ownedProcesses = await storage.getUserOwnedProcesses(userId);
-      res.json(ownedProcesses);
-    } catch (error) {
-      console.error("Error fetching owned processes:", error);
-      res.status(500).json({ message: "Failed to fetch owned processes" });
     }
   });
 

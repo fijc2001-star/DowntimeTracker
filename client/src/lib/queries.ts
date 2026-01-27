@@ -56,6 +56,7 @@ export function useCreateProcess() {
     mutationFn: (data: InsertProcess) => api.createProcess(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.processes });
+      queryClient.invalidateQueries({ queryKey: ['processes', 'owned'] });
     },
   });
 }
