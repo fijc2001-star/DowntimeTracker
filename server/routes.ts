@@ -125,6 +125,30 @@ export async function registerRoutes(
     }
   });
 
+  // Delete process (owner only)
+  app.delete("/api/processes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const processId = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
+      
+      // Only owner can delete a process
+      const role = await storage.getUserProcessRole(userId, processId);
+      if (role !== 'owner') {
+        return res.status(403).json({ message: "Only process owner can delete" });
+      }
+      
+      const deleted = await storage.deleteProcess(processId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Process not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting process:", error);
+      res.status(500).json({ message: "Failed to delete process" });
+    }
+  });
+
   // ===== NODE ENDPOINTS =====
   
   // Get all nodes accessible to user
@@ -217,6 +241,57 @@ export async function registerRoutes(
       }
       console.error("Error creating node:", error);
       res.status(500).json({ message: "Failed to create node" });
+    }
+  });
+
+  // Update node
+  app.patch("/api/nodes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const nodeId = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
+      
+      const hasAdmin = await storage.hasNodeAccess(userId, nodeId, 'admin');
+      if (!hasAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const data = insertNodeSchema.partial().parse(req.body);
+      const node = await storage.updateNode(nodeId, data);
+      
+      if (!node) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+      
+      res.json(node);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      }
+      console.error("Error updating node:", error);
+      res.status(500).json({ message: "Failed to update node" });
+    }
+  });
+
+  // Delete node (admin only)
+  app.delete("/api/nodes/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const nodeId = typeof req.params.id === 'string' ? req.params.id : req.params.id[0];
+      
+      const hasAdmin = await storage.hasNodeAccess(userId, nodeId, 'admin');
+      if (!hasAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const deleted = await storage.deleteNode(nodeId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting node:", error);
+      res.status(500).json({ message: "Failed to delete node" });
     }
   });
 

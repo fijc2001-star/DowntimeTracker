@@ -15,6 +15,7 @@ export interface IStorage {
   getProcess(id: string): Promise<Process | undefined>;
   createProcess(process: InsertProcess, creatorId: string): Promise<Process>;
   updateProcess(id: string, process: Partial<InsertProcess>): Promise<Process | undefined>;
+  deleteProcess(id: string): Promise<boolean>;
   
   // Node operations
   getNodes(): Promise<Node[]>;
@@ -22,6 +23,7 @@ export interface IStorage {
   getNode(id: string): Promise<Node | undefined>;
   createNode(node: InsertNode, creatorId: string): Promise<Node>;
   updateNode(id: string, node: Partial<InsertNode>): Promise<Node | undefined>;
+  deleteNode(id: string): Promise<boolean>;
   
   // Downtime reason operations
   getDowntimeReasons(): Promise<DowntimeReason[]>;
@@ -85,6 +87,16 @@ export class DatabaseStorage implements IStorage {
     return process;
   }
 
+  async deleteProcess(id: string): Promise<boolean> {
+    // Soft delete by setting isActive to false
+    const [process] = await db
+      .update(processes)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(processes.id, id))
+      .returning();
+    return !!process;
+  }
+
   // Node operations
   async getNodes(): Promise<Node[]> {
     return await db.select().from(nodes).where(eq(nodes.isActive, true));
@@ -125,6 +137,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(nodes.id, id))
       .returning();
     return node;
+  }
+
+  async deleteNode(id: string): Promise<boolean> {
+    // Soft delete by setting isActive to false
+    const [node] = await db
+      .update(nodes)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(nodes.id, id))
+      .returning();
+    return !!node;
   }
 
   // Downtime reason operations

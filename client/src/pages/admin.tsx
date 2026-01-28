@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Settings2, ChevronDown, ChevronRight, Users, Shield, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Settings2, ChevronDown, ChevronRight, Users, Shield, UserPlus, Pencil } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode } from '@/lib/queries';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode } from '@/lib/queries';
 import { useToast } from '@/hooks/use-toast';
 
 function CollapsibleSection({ 
@@ -375,6 +376,10 @@ export default function AdminPage() {
   const { data: allNodes = [] } = useNodes();
   const createProcess = useCreateProcess();
   const createNode = useCreateNode();
+  const updateProcess = useUpdateProcess();
+  const deleteProcess = useDeleteProcess();
+  const updateNode = useUpdateNode();
+  const deleteNode = useDeleteNode();
   const { toast } = useToast();
   
   // Filter nodes to only show those belonging to owned processes
@@ -383,12 +388,18 @@ export default function AdminPage() {
   
   const [newProcessOpen, setNewProcessOpen] = React.useState(false);
   const [newNodeOpen, setNewNodeOpen] = React.useState(false);
+  const [editProcessOpen, setEditProcessOpen] = React.useState(false);
+  const [editNodeOpen, setEditNodeOpen] = React.useState(false);
   
   // Form State
   const [procName, setProcName] = React.useState('');
   const [procDesc, setProcDesc] = React.useState('');
   const [nodeName, setNodeName] = React.useState('');
   const [nodeProcId, setNodeProcId] = React.useState('');
+  
+  // Edit state
+  const [editingProcessId, setEditingProcessId] = React.useState('');
+  const [editingNodeId, setEditingNodeId] = React.useState('');
 
   const handleAddProcess = () => {
     createProcess.mutate(
@@ -422,6 +433,78 @@ export default function AdminPage() {
         },
       }
     );
+  };
+  
+  const handleEditProcess = (process: { id: string; name: string; description?: string | null }) => {
+    setEditingProcessId(process.id);
+    setProcName(process.name);
+    setProcDesc(process.description || '');
+    setEditProcessOpen(true);
+  };
+  
+  const handleUpdateProcess = () => {
+    updateProcess.mutate(
+      { id: editingProcessId, data: { name: procName, description: procDesc } },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Process updated successfully' });
+          setProcName('');
+          setProcDesc('');
+          setEditingProcessId('');
+          setEditProcessOpen(false);
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to update process', variant: 'destructive' });
+        },
+      }
+    );
+  };
+  
+  const handleDeleteProcess = (processId: string) => {
+    deleteProcess.mutate(processId, {
+      onSuccess: () => {
+        toast({ title: 'Success', description: 'Process deleted successfully' });
+      },
+      onError: () => {
+        toast({ title: 'Error', description: 'Failed to delete process', variant: 'destructive' });
+      },
+    });
+  };
+  
+  const handleEditNode = (node: { id: string; name: string; processId: string }) => {
+    setEditingNodeId(node.id);
+    setNodeName(node.name);
+    setNodeProcId(node.processId);
+    setEditNodeOpen(true);
+  };
+  
+  const handleUpdateNode = () => {
+    updateNode.mutate(
+      { id: editingNodeId, data: { name: nodeName } },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Node updated successfully' });
+          setNodeName('');
+          setNodeProcId('');
+          setEditingNodeId('');
+          setEditNodeOpen(false);
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to update node', variant: 'destructive' });
+        },
+      }
+    );
+  };
+  
+  const handleDeleteNode = (nodeId: string) => {
+    deleteNode.mutate(nodeId, {
+      onSuccess: () => {
+        toast({ title: 'Success', description: 'Node deleted successfully' });
+      },
+      onError: () => {
+        toast({ title: 'Error', description: 'Failed to delete node', variant: 'destructive' });
+      },
+    });
   };
 
   return (
@@ -496,10 +579,42 @@ export default function AdminPage() {
                   <TableCell className="font-mono text-xs">{p.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-muted-foreground">{p.description || '-'}</TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <Settings2 className="h-4 w-4" />
+                  <TableCell className="text-right space-x-1">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-8 w-8" 
+                      onClick={() => handleEditProcess(p)}
+                      data-testid={`button-edit-process-${p.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
                     </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="h-8 w-8 hover:text-destructive"
+                          data-testid={`button-delete-process-${p.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Process</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{p.name}"? This will also remove all associated nodes and their downtime history. This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteProcess(p.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </TableCell>
                 </TableRow>
               ))
@@ -591,10 +706,42 @@ export default function AdminPage() {
                         {n.status.toUpperCase()}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive">
-                        <Trash2 className="h-4 w-4" />
+                    <TableCell className="text-right space-x-1">
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="h-8 w-8" 
+                        onClick={() => handleEditNode(n)}
+                        data-testid={`button-edit-node-${n.id}`}
+                      >
+                        <Pencil className="h-4 w-4" />
                       </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-8 w-8 hover:text-destructive"
+                            data-testid={`button-delete-node-${n.id}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Node</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{n.name}"? This will also remove all associated downtime events. This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteNode(n.id)} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </TableCell>
                   </TableRow>
                 );
@@ -613,6 +760,63 @@ export default function AdminPage() {
       >
         <AuthorizationSection />
       </CollapsibleSection>
+      
+      {/* Edit Process Dialog */}
+      <Dialog open={editProcessOpen} onOpenChange={setEditProcessOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Process</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Process Name</Label>
+              <Input 
+                value={procName} 
+                onChange={e => setProcName(e.target.value)} 
+                placeholder="e.g. Assembly Line B"
+                data-testid="input-edit-process-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Description</Label>
+              <Input 
+                value={procDesc} 
+                onChange={e => setProcDesc(e.target.value)} 
+                placeholder="e.g. Secondary assembly unit"
+                data-testid="input-edit-process-description"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditProcessOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateProcess} data-testid="button-update-process">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Edit Node Dialog */}
+      <Dialog open={editNodeOpen} onOpenChange={setEditNodeOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Node</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Node Name</Label>
+              <Input 
+                value={nodeName} 
+                onChange={e => setNodeName(e.target.value)} 
+                placeholder="e.g. CNC Machine 04"
+                data-testid="input-edit-node-name"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditNodeOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateNode} data-testid="button-update-node">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

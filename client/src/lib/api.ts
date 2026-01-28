@@ -55,6 +55,12 @@ export async function updateProcess(id: string, data: Partial<InsertProcess>) {
   });
 }
 
+export async function deleteProcess(id: string) {
+  return fetchAPI<{ success: boolean }>(`/api/processes/${id}`, {
+    method: 'DELETE',
+  });
+}
+
 // Node API
 export async function getNodes(processId?: string) {
   const url = processId ? `/api/nodes?processId=${processId}` : '/api/nodes';
@@ -76,6 +82,12 @@ export async function updateNode(id: string, data: Partial<InsertNode>) {
   return fetchAPI<Node>(`/api/nodes/${id}`, {
     method: 'PATCH',
     body: JSON.stringify(data),
+  });
+}
+
+export async function deleteNode(id: string) {
+  return fetchAPI<{ success: boolean }>(`/api/nodes/${id}`, {
+    method: 'DELETE',
   });
 }
 

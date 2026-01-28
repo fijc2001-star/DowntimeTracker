@@ -73,6 +73,17 @@ export function useUpdateProcess() {
   });
 }
 
+export function useDeleteProcess() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteProcess(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.processes });
+      queryClient.invalidateQueries({ queryKey: ['processes', 'owned'] });
+    },
+  });
+}
+
 // Node Queries
 export function useNodes(processId?: string) {
   return useQuery({
@@ -108,6 +119,16 @@ export function useUpdateNode() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: queryKeys.node(variables.id) });
+    },
+  });
+}
+
+export function useDeleteNode() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.deleteNode(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
     },
   });
 }
