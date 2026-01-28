@@ -26,9 +26,11 @@ export interface IStorage {
   deleteNode(id: string): Promise<boolean>;
   
   // Downtime reason operations
-  getDowntimeReasons(): Promise<DowntimeReason[]>;
-  getActiveDowntimeReasons(): Promise<DowntimeReason[]>;
+  getDowntimeReasonsByProcess(processId: string): Promise<DowntimeReason[]>;
+  getActiveDowntimeReasonsByProcess(processId: string): Promise<DowntimeReason[]>;
   createDowntimeReason(reason: InsertDowntimeReason): Promise<DowntimeReason>;
+  updateDowntimeReason(id: string, data: Partial<InsertDowntimeReason>): Promise<DowntimeReason | undefined>;
+  deleteDowntimeReason(id: string): Promise<boolean>;
   
   // Downtime event operations
   getDowntimeEvents(filters?: { processId?: string; nodeId?: string }): Promise<DowntimeEvent[]>;

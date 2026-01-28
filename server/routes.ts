@@ -297,10 +297,21 @@ export async function registerRoutes(
 
   // ===== DOWNTIME REASON ENDPOINTS =====
   
-  // Get all active downtime reasons
-  app.get("/api/downtime-reasons", isAuthenticated, async (req, res) => {
+  // Get downtime reasons for a process (active only for operators, all for admins)
+  app.get("/api/processes/:processId/downtime-reasons", isAuthenticated, async (req, res) => {
     try {
-      const reasons = await storage.getActiveDowntimeReasons();
+      const userId = getUserId(req);
+      const { processId } = req.params;
+      const includeInactive = req.query.includeInactive === 'true';
+      
+      const hasAccess = await storage.hasProcessAccess(userId, processId);
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const reasons = includeInactive 
+        ? await storage.getDowntimeReasonsByProcess(processId)
+        : await storage.getActiveDowntimeReasonsByProcess(processId);
       res.json(reasons);
     } catch (error) {
       console.error("Error fetching downtime reasons:", error);
@@ -308,10 +319,18 @@ export async function registerRoutes(
     }
   });
 
-  // Create downtime reason (admin only - could add global admin check here)
-  app.post("/api/downtime-reasons", isAuthenticated, async (req, res) => {
+  // Create downtime reason for a process (admin/owner only)
+  app.post("/api/processes/:processId/downtime-reasons", isAuthenticated, async (req, res) => {
     try {
-      const data = insertDowntimeReasonSchema.parse(req.body);
+      const userId = getUserId(req);
+      const { processId } = req.params;
+      
+      const hasAdmin = await storage.hasProcessAccess(userId, processId, 'admin');
+      if (!hasAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const data = insertDowntimeReasonSchema.parse({ ...req.body, processId });
       const reason = await storage.createDowntimeReason(data);
       res.status(201).json(reason);
     } catch (error) {
@@ -320,6 +339,56 @@ export async function registerRoutes(
       }
       console.error("Error creating downtime reason:", error);
       res.status(500).json({ message: "Failed to create downtime reason" });
+    }
+  });
+
+  // Update downtime reason (admin/owner only)
+  app.patch("/api/downtime-reasons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+      
+      // Get the reason to find its process
+      const reasons = await storage.getDowntimeReasonsByProcess(req.body.processId);
+      const reason = reasons.find(r => r.id === id);
+      if (!reason) {
+        return res.status(404).json({ message: "Downtime reason not found" });
+      }
+      
+      const hasAdmin = await storage.hasProcessAccess(userId, reason.processId, 'admin');
+      if (!hasAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      const updated = await storage.updateDowntimeReason(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating downtime reason:", error);
+      res.status(500).json({ message: "Failed to update downtime reason" });
+    }
+  });
+
+  // Delete downtime reason (admin/owner only)
+  app.delete("/api/downtime-reasons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+      const processId = req.query.processId as string;
+      
+      if (!processId) {
+        return res.status(400).json({ message: "processId query parameter required" });
+      }
+      
+      const hasAdmin = await storage.hasProcessAccess(userId, processId, 'admin');
+      if (!hasAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+      
+      await storage.deleteDowntimeReason(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting downtime reason:", error);
+      res.status(500).json({ message: "Failed to delete downtime reason" });
     }
   });
 
