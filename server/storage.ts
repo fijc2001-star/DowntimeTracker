@@ -150,19 +150,41 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Downtime reason operations
-  async getDowntimeReasons(): Promise<DowntimeReason[]> {
-    return await db.select().from(downtimeReasons).orderBy(downtimeReasons.label);
+  async getDowntimeReasonsByProcess(processId: string): Promise<DowntimeReason[]> {
+    return await db.select().from(downtimeReasons)
+      .where(eq(downtimeReasons.processId, processId))
+      .orderBy(downtimeReasons.label);
   }
 
-  async getActiveDowntimeReasons(): Promise<DowntimeReason[]> {
+  async getActiveDowntimeReasonsByProcess(processId: string): Promise<DowntimeReason[]> {
     return await db.select().from(downtimeReasons)
-      .where(eq(downtimeReasons.isActive, true))
+      .where(and(
+        eq(downtimeReasons.processId, processId),
+        eq(downtimeReasons.isActive, true)
+      ))
       .orderBy(downtimeReasons.label);
   }
 
   async createDowntimeReason(reasonData: InsertDowntimeReason): Promise<DowntimeReason> {
     const [reason] = await db.insert(downtimeReasons).values(reasonData).returning();
     return reason;
+  }
+
+  async updateDowntimeReason(id: string, data: Partial<InsertDowntimeReason>): Promise<DowntimeReason | undefined> {
+    const [reason] = await db
+      .update(downtimeReasons)
+      .set(data)
+      .where(eq(downtimeReasons.id, id))
+      .returning();
+    return reason;
+  }
+
+  async deleteDowntimeReason(id: string): Promise<boolean> {
+    const [reason] = await db
+      .delete(downtimeReasons)
+      .where(eq(downtimeReasons.id, id))
+      .returning();
+    return !!reason;
   }
 
   // Downtime event operations
