@@ -133,20 +133,44 @@ export function useDeleteNode() {
   });
 }
 
-// Downtime Reason Queries
-export function useDowntimeReasons() {
+// Downtime Reason Queries (process-scoped)
+export function useDowntimeReasonsByProcess(processId: string, includeInactive = false) {
   return useQuery({
-    queryKey: queryKeys.downtimeReasons,
-    queryFn: api.getDowntimeReasons,
+    queryKey: ['downtimeReasons', processId, { includeInactive }],
+    queryFn: () => api.getDowntimeReasonsByProcess(processId, includeInactive),
+    enabled: !!processId,
   });
 }
 
 export function useCreateDowntimeReason() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: InsertDowntimeReason) => api.createDowntimeReason(data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.downtimeReasons });
+    mutationFn: ({ processId, data }: { processId: string; data: Omit<InsertDowntimeReason, 'processId'> }) => 
+      api.createDowntimeReason(processId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'downtimeReasons' && query.queryKey[1] === variables.processId });
+    },
+  });
+}
+
+export function useUpdateDowntimeReason() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, processId, data }: { id: string; processId: string; data: Partial<InsertDowntimeReason> }) => 
+      api.updateDowntimeReason(id, { ...data, processId }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'downtimeReasons' && query.queryKey[1] === variables.processId });
+    },
+  });
+}
+
+export function useDeleteDowntimeReason() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, processId }: { id: string; processId: string }) => 
+      api.deleteDowntimeReason(id, processId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'downtimeReasons' && query.queryKey[1] === variables.processId });
     },
   });
 }

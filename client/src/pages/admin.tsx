@@ -5,11 +5,13 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
-import { Plus, Trash2, Settings2, ChevronDown, ChevronRight, Users, Shield, UserPlus, Pencil } from 'lucide-react';
+import { Plus, Trash2, Settings2, ChevronDown, ChevronRight, Users, Shield, UserPlus, Pencil, AlertTriangle, ListChecks } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode } from '@/lib/queries';
+import { Badge } from '@/components/ui/badge';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason } from '@/lib/queries';
+import type { DowntimeReason } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 
 function CollapsibleSection({ 
@@ -368,6 +370,296 @@ function ProcessPermissionsCard({
         </Table>
       </CardContent>
     </Card>
+  );
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  mechanical: 'bg-orange-100 text-orange-800',
+  electrical: 'bg-blue-100 text-blue-800',
+  operational: 'bg-purple-100 text-purple-800',
+  external: 'bg-gray-100 text-gray-800',
+};
+
+function DowntimeReasonsSection() {
+  const { data: ownedProcesses = [] } = useMyOwnedProcesses();
+  const [selectedProcessId, setSelectedProcessId] = React.useState('');
+  const [addDialogOpen, setAddDialogOpen] = React.useState(false);
+  const [editDialogOpen, setEditDialogOpen] = React.useState(false);
+  const [editingReason, setEditingReason] = React.useState<DowntimeReason | null>(null);
+  
+  const [reasonLabel, setReasonLabel] = React.useState('');
+  const [reasonCategory, setReasonCategory] = React.useState<'mechanical' | 'electrical' | 'operational' | 'external'>('mechanical');
+  
+  const { data: reasons = [] } = useDowntimeReasonsByProcess(selectedProcessId, true);
+  const createReason = useCreateDowntimeReason();
+  const updateReason = useUpdateDowntimeReason();
+  const deleteReason = useDeleteDowntimeReason();
+  const { toast } = useToast();
+  
+  React.useEffect(() => {
+    if (ownedProcesses.length > 0 && !selectedProcessId) {
+      setSelectedProcessId(ownedProcesses[0].id);
+    }
+  }, [ownedProcesses, selectedProcessId]);
+  
+  const handleAddReason = () => {
+    if (!reasonLabel.trim()) {
+      toast({ title: 'Error', description: 'Please enter a reason label', variant: 'destructive' });
+      return;
+    }
+    
+    createReason.mutate(
+      { processId: selectedProcessId, data: { label: reasonLabel, category: reasonCategory, isActive: true } },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Downtime reason created' });
+          setReasonLabel('');
+          setReasonCategory('mechanical');
+          setAddDialogOpen(false);
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to create reason', variant: 'destructive' });
+        },
+      }
+    );
+  };
+  
+  const handleEditReason = (reason: DowntimeReason) => {
+    setEditingReason(reason);
+    setReasonLabel(reason.label);
+    setReasonCategory(reason.category as 'mechanical' | 'electrical' | 'operational' | 'external');
+    setEditDialogOpen(true);
+  };
+  
+  const handleUpdateReason = () => {
+    if (!editingReason || !reasonLabel.trim()) return;
+    
+    updateReason.mutate(
+      { id: editingReason.id, processId: selectedProcessId, data: { label: reasonLabel, category: reasonCategory } },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Reason updated' });
+          setEditDialogOpen(false);
+          setEditingReason(null);
+          setReasonLabel('');
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to update reason', variant: 'destructive' });
+        },
+      }
+    );
+  };
+  
+  const handleToggleActive = (reason: DowntimeReason) => {
+    updateReason.mutate(
+      { id: reason.id, processId: selectedProcessId, data: { isActive: !reason.isActive } },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: reason.isActive ? 'Reason disabled' : 'Reason enabled' });
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to update reason', variant: 'destructive' });
+        },
+      }
+    );
+  };
+  
+  const handleDeleteReason = (reason: DowntimeReason) => {
+    deleteReason.mutate(
+      { id: reason.id, processId: selectedProcessId },
+      {
+        onSuccess: () => {
+          toast({ title: 'Success', description: 'Reason deleted' });
+        },
+        onError: () => {
+          toast({ title: 'Error', description: 'Failed to delete reason', variant: 'destructive' });
+        },
+      }
+    );
+  };
+  
+  if (ownedProcesses.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
+        <p>You need to own a process to manage downtime reasons.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Label>Select Process:</Label>
+          <Select value={selectedProcessId} onValueChange={setSelectedProcessId}>
+            <SelectTrigger className="w-[250px]" data-testid="select-process-for-reasons">
+              <SelectValue placeholder="Select a process" />
+            </SelectTrigger>
+            <SelectContent>
+              {ownedProcesses.map(proc => (
+                <SelectItem key={proc.id} value={proc.id}>{proc.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        
+        <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-reason">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Reason
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Downtime Reason</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Reason Label</Label>
+                <Input
+                  value={reasonLabel}
+                  onChange={e => setReasonLabel(e.target.value)}
+                  placeholder="e.g. Motor Failure"
+                  data-testid="input-reason-label"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Category</Label>
+                <Select value={reasonCategory} onValueChange={(v: any) => setReasonCategory(v)}>
+                  <SelectTrigger data-testid="select-reason-category">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="mechanical">Mechanical</SelectItem>
+                    <SelectItem value="electrical">Electrical</SelectItem>
+                    <SelectItem value="operational">Operational</SelectItem>
+                    <SelectItem value="external">External</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleAddReason} data-testid="button-submit-reason">Add Reason</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+      
+      {reasons.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground border rounded-lg">
+          <ListChecks className="h-8 w-8 mx-auto mb-2" />
+          <p>No downtime reasons configured for this process.</p>
+          <p className="text-sm">Add reasons that operators can select when stopping a machine.</p>
+        </div>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Reason</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {reasons.map(reason => (
+              <TableRow key={reason.id} className={!reason.isActive ? 'opacity-50' : ''} data-testid={`row-reason-${reason.id}`}>
+                <TableCell className="font-medium">{reason.label}</TableCell>
+                <TableCell>
+                  <Badge variant="outline" className={CATEGORY_COLORS[reason.category]}>
+                    {reason.category.charAt(0).toUpperCase() + reason.category.slice(1)}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <Badge variant={reason.isActive ? 'default' : 'secondary'}>
+                    {reason.isActive ? 'Active' : 'Disabled'}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleEditReason(reason)}
+                      data-testid={`button-edit-reason-${reason.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleToggleActive(reason)}
+                      data-testid={`button-toggle-reason-${reason.id}`}
+                    >
+                      {reason.isActive ? '🔴' : '🟢'}
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive" data-testid={`button-delete-reason-${reason.id}`}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Reason</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{reason.label}"? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteReason(reason)}>Delete</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
+      
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Downtime Reason</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Reason Label</Label>
+              <Input
+                value={reasonLabel}
+                onChange={e => setReasonLabel(e.target.value)}
+                placeholder="e.g. Motor Failure"
+                data-testid="input-edit-reason-label"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Category</Label>
+              <Select value={reasonCategory} onValueChange={(v: any) => setReasonCategory(v)}>
+                <SelectTrigger data-testid="select-edit-reason-category">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="mechanical">Mechanical</SelectItem>
+                  <SelectItem value="electrical">Electrical</SelectItem>
+                  <SelectItem value="operational">Operational</SelectItem>
+                  <SelectItem value="external">External</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleUpdateReason} data-testid="button-update-reason">Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -759,6 +1051,16 @@ export default function AdminPage() {
         defaultOpen={true}
       >
         <AuthorizationSection />
+      </CollapsibleSection>
+      
+      {/* Downtime Reasons Management */}
+      <CollapsibleSection
+        title="Downtime Reasons"
+        description="Configure the reasons operators can select when logging downtime"
+        icon={ListChecks}
+        defaultOpen={false}
+      >
+        <DowntimeReasonsSection />
       </CollapsibleSection>
       
       {/* Edit Process Dialog */}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useProcesses, useNodes, useDowntimeEvents, useDowntimeReasons } from '@/lib/queries';
+import { useProcesses, useNodes, useDowntimeEvents } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { ArrowRight, Factory, AlertCircle, CheckCircle2, Loader2 } from 'lucide-react';
@@ -10,7 +10,6 @@ export default function Dashboard() {
   const { data: processes = [], isLoading: processesLoading } = useProcesses();
   const { data: nodes = [], isLoading: nodesLoading } = useNodes();
   const { data: events = [], isLoading: eventsLoading } = useDowntimeEvents();
-  const { data: reasons = [] } = useDowntimeReasons();
 
   const isLoading = processesLoading || nodesLoading || eventsLoading;
 
@@ -19,16 +18,15 @@ export default function Dashboard() {
   const totalNodes = nodes.length;
   const utilization = totalNodes > 0 ? ((totalNodes - activeDowntimes) / totalNodes) * 100 : 0;
 
-  // Chart Data: Total downtime events by reason category
-  const categoryStats = React.useMemo(() => {
-    const stats: Record<string, number> = {};
-    events.forEach(e => {
-      const reason = reasons.find(r => r.id === e.reasonId);
-      const cat = reason?.category || 'Uncategorized';
-      stats[cat] = (stats[cat] || 0) + 1;
-    });
-    return Object.entries(stats).map(([name, value]) => ({ name, value }));
-  }, [events, reasons]);
+  // Chart Data: Events by status (active vs resolved)
+  const statusStats = React.useMemo(() => {
+    const active = events.filter(e => !e.endTime).length;
+    const resolved = events.filter(e => e.endTime).length;
+    return [
+      { name: 'Active', value: active },
+      { name: 'Resolved', value: resolved },
+    ].filter(s => s.value > 0);
+  }, [events]);
 
   // Get process status based on nodes
   const getProcessStatus = (processId: string) => {
@@ -147,16 +145,16 @@ export default function Dashboard() {
         {/* Analytics Summary */}
         <Card>
           <CardHeader>
-            <CardTitle>Downtime Reasons</CardTitle>
-            <CardDescription>Distribution by category</CardDescription>
+            <CardTitle>Event Status</CardTitle>
+            <CardDescription>Active vs resolved downtimes</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="h-[300px] w-full">
-              {categoryStats.length > 0 ? (
+              {statusStats.length > 0 ? (
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={categoryStats}
+                      data={statusStats}
                       cx="50%"
                       cy="50%"
                       innerRadius={60}
@@ -164,7 +162,7 @@ export default function Dashboard() {
                       paddingAngle={5}
                       dataKey="value"
                     >
-                      {categoryStats.map((entry, index) => (
+                      {statusStats.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>

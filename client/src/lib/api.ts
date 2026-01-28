@@ -91,15 +91,29 @@ export async function deleteNode(id: string) {
   });
 }
 
-// Downtime Reason API
-export async function getDowntimeReasons() {
-  return fetchAPI<DowntimeReason[]>('/api/downtime-reasons');
+// Downtime Reason API (process-scoped)
+export async function getDowntimeReasonsByProcess(processId: string, includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  return fetchAPI<DowntimeReason[]>(`/api/processes/${processId}/downtime-reasons${params}`);
 }
 
-export async function createDowntimeReason(data: InsertDowntimeReason) {
-  return fetchAPI<DowntimeReason>('/api/downtime-reasons', {
+export async function createDowntimeReason(processId: string, data: Omit<InsertDowntimeReason, 'processId'>) {
+  return fetchAPI<DowntimeReason>(`/api/processes/${processId}/downtime-reasons`, {
     method: 'POST',
     body: JSON.stringify(data),
+  });
+}
+
+export async function updateDowntimeReason(id: string, data: Partial<InsertDowntimeReason>) {
+  return fetchAPI<DowntimeReason>(`/api/downtime-reasons/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteDowntimeReason(id: string, processId: string) {
+  return fetchAPI<{ success: boolean }>(`/api/downtime-reasons/${id}?processId=${processId}`, {
+    method: 'DELETE',
   });
 }
 

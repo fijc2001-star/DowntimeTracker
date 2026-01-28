@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { useNode, useProcess, useDowntimeEvents, useDowntimeReasons, useStartDowntime, useStopDowntime } from '@/lib/queries';
+import { useNode, useProcess, useDowntimeEvents, useDowntimeReasonsByProcess, useStartDowntime, useStopDowntime } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
@@ -17,7 +17,7 @@ export default function NodeView() {
   
   const { data: node, isLoading: nodeLoading } = useNode(nodeId);
   const { data: process } = useProcess(node?.processId || '');
-  const { data: reasons = [] } = useDowntimeReasons();
+  const { data: reasons = [] } = useDowntimeReasonsByProcess(node?.processId || '');
   const { data: events = [] } = useDowntimeEvents({ nodeId });
   
   const startDowntime = useStartDowntime();
