@@ -49,9 +49,10 @@ export const selectNodeSchema = createSelectSchema(nodes);
 export type InsertNode = z.infer<typeof insertNodeSchema>;
 export type Node = typeof nodes.$inferSelect;
 
-// Downtime Reasons table
+// Downtime Reasons table - linked to specific processes
 export const downtimeReasons = pgTable("downtime_reasons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  processId: varchar("process_id").notNull().references(() => processes.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
   category: downtimeReasonCategoryEnum("category").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
