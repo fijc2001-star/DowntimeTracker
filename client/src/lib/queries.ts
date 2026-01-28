@@ -208,7 +208,10 @@ export function useDeletePermission() {
   return useMutation({
     mutationFn: (id: string) => api.deletePermission(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      // Invalidate all permission queries (matches ['permissions', ...])
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === 'permissions'
+      });
     },
   });
 }
@@ -235,7 +238,10 @@ export function useAssignPermission() {
   return useMutation({
     mutationFn: api.assignPermission,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      // Invalidate all permission queries (matches ['permissions', ...])
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === 'permissions'
+      });
       queryClient.invalidateQueries({ queryKey: ['processes'] });
     },
   });
@@ -247,7 +253,10 @@ export function useRevokePermission() {
   return useMutation({
     mutationFn: (id: string) => api.deletePermission(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['permissions'] });
+      // Invalidate all permission queries (matches ['permissions', ...])
+      queryClient.invalidateQueries({ predicate: (query) => 
+        Array.isArray(query.queryKey) && query.queryKey[0] === 'permissions'
+      });
     },
   });
 }
