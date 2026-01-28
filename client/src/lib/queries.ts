@@ -9,7 +9,7 @@ export const queryKeys = {
   process: (id: string) => ['process', id],
   nodes: (processId?: string) => processId ? ['nodes', processId] : ['nodes'],
   node: (id: string) => ['node', id],
-  downtimeReasons: ['downtimeReasons'],
+  downtimeReasonsByProcess: (processId: string) => ['downtimeReasons', processId],
   downtimeEvents: (filters?: { processId?: string; nodeId?: string }) => ['downtimeEvents', filters],
   processPermissions: (processId: string) => ['permissions', 'process', processId],
 };
