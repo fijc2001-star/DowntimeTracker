@@ -584,7 +584,7 @@ export async function registerRoutes(
       }
       
       await storage.deletePermission(permissionId);
-      res.status(204).send();
+      res.json({ success: true });
     } catch (error) {
       console.error("Error deleting permission:", error);
       res.status(500).json({ message: "Failed to delete permission" });
