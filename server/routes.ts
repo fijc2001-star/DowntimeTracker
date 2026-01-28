@@ -424,14 +424,14 @@ export async function registerRoutes(
     }
   });
 
-  // Start downtime (create event without end time)
+  // Start downtime (create event with reason)
   app.post("/api/downtime-events/start", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const { nodeId } = req.body;
+      const { nodeId, reasonId } = req.body;
       
-      if (!nodeId) {
-        return res.status(400).json({ message: "nodeId is required" });
+      if (!nodeId || !reasonId) {
+        return res.status(400).json({ message: "nodeId and reasonId are required" });
       }
       
       // Check access
@@ -456,6 +456,7 @@ export async function registerRoutes(
         nodeId,
         processId: node.processId,
         startTime: new Date(),
+        reasonId,
         createdBy: userId,
       });
       
@@ -466,14 +467,14 @@ export async function registerRoutes(
     }
   });
 
-  // Stop downtime (update event with end time and reason)
+  // Stop downtime (update event with end time)
   app.post("/api/downtime-events/stop", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const { nodeId, reasonId } = req.body;
+      const { nodeId } = req.body;
       
-      if (!nodeId || !reasonId) {
-        return res.status(400).json({ message: "nodeId and reasonId are required" });
+      if (!nodeId) {
+        return res.status(400).json({ message: "nodeId is required" });
       }
       
       // Check access
@@ -490,7 +491,6 @@ export async function registerRoutes(
       
       const event = await storage.updateDowntimeEvent(activeEvent.id, {
         endTime: new Date(),
-        reasonId,
       });
       
       res.json(event);

@@ -186,7 +186,8 @@ export function useDowntimeEvents(filters?: { processId?: string; nodeId?: strin
 export function useStartDowntime() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (nodeId: string) => api.startDowntime(nodeId),
+    mutationFn: ({ nodeId, reasonId }: { nodeId: string; reasonId: string }) => 
+      api.startDowntime(nodeId, reasonId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: queryKeys.downtimeEvents() });
@@ -197,8 +198,7 @@ export function useStartDowntime() {
 export function useStopDowntime() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ nodeId, reasonId }: { nodeId: string; reasonId: string }) => 
-      api.stopDowntime(nodeId, reasonId),
+    mutationFn: (nodeId: string) => api.stopDowntime(nodeId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: queryKeys.downtimeEvents() });

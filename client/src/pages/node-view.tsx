@@ -49,9 +49,12 @@ export default function NodeView() {
     return () => clearInterval(interval);
   }, [isDown]);
 
-  const handleStart = async () => {
+  const handleStopWithReason = async () => {
+    if (!selectedReason) return;
     try {
-      await startDowntime.mutateAsync(node.id);
+      await startDowntime.mutateAsync({ nodeId: node.id, reasonId: selectedReason });
+      setStopDialogOpen(false);
+      setSelectedReason('');
       toast({
         title: 'Downtime Started',
         description: `${node.name} is now marked as down.`,
@@ -65,20 +68,17 @@ export default function NodeView() {
     }
   };
 
-  const handleStop = async () => {
-    if (!selectedReason) return;
+  const handleResume = async () => {
     try {
-      await stopDowntime.mutateAsync({ nodeId: node.id, reasonId: selectedReason });
-      setStopDialogOpen(false);
-      setSelectedReason('');
+      await stopDowntime.mutateAsync(node.id);
       toast({
-        title: 'Downtime Ended',
+        title: 'Production Resumed',
         description: `${node.name} is now running.`,
       });
     } catch (error) {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to stop downtime',
+        description: error instanceof Error ? error.message : 'Failed to resume production',
         variant: 'destructive',
       });
     }
@@ -139,23 +139,23 @@ export default function NodeView() {
                <Button 
                  size="lg" 
                  className="flex-1 h-32 text-2xl font-bold bg-success hover:bg-success/90 text-white shadow-[0_0_30px_hsl(var(--success)/0.3)] transition-all hover:scale-[1.02]"
-                 onClick={() => setStopDialogOpen(true)}
+                 onClick={handleResume}
                  disabled={stopDowntime.isPending}
-                 data-testid="button-resume"
+                 data-testid="button-start"
                >
                  {stopDowntime.isPending ? (
                    <Loader2 className="h-8 w-8 mr-3 animate-spin" />
                  ) : (
                    <Play className="h-8 w-8 mr-3 fill-current" />
                  )}
-                 RESUME
+                 START
                </Button>
              ) : (
                <Button 
                  size="lg" 
                  variant="destructive"
                  className="flex-1 h-32 text-2xl font-bold shadow-[0_0_30px_hsl(var(--destructive)/0.3)] transition-all hover:scale-[1.02]"
-                 onClick={handleStart}
+                 onClick={() => setStopDialogOpen(true)}
                  disabled={startDowntime.isPending}
                  data-testid="button-stop"
                >
@@ -207,13 +207,13 @@ export default function NodeView() {
         </CardContent>
       </Card>
 
-      {/* Stop Downtime Dialog */}
+      {/* Stop Production Dialog */}
       <Dialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Resume Production</DialogTitle>
+            <DialogTitle>Stop Production</DialogTitle>
             <DialogDescription>
-              Select the reason for the downtime that just ended.
+              Select the reason for stopping this machine.
             </DialogDescription>
           </DialogHeader>
           <div className="py-4">
@@ -235,12 +235,13 @@ export default function NodeView() {
               Cancel
             </Button>
             <Button 
-              onClick={handleStop} 
-              disabled={!selectedReason || stopDowntime.isPending}
-              data-testid="button-confirm-resume"
+              variant="destructive"
+              onClick={handleStopWithReason} 
+              disabled={!selectedReason || startDowntime.isPending}
+              data-testid="button-confirm-stop"
             >
-              {stopDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Resume
+              {startDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              Stop Production
             </Button>
           </DialogFooter>
         </DialogContent>

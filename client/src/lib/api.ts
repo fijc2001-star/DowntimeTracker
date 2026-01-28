@@ -34,11 +34,11 @@ export async function logout() {
 
 // Process API
 export async function getProcesses() {
-  return fetchAPI<(Process & { userRole: 'admin' | 'operator' })[]>('/api/processes');
+  return fetchAPI<(Process & { userRole: 'owner' | 'admin' | 'operator' })[]>('/api/processes');
 }
 
 export async function getProcess(id: string) {
-  return fetchAPI<Process & { userRole: 'admin' | 'operator' }>(`/api/processes/${id}`);
+  return fetchAPI<Process & { userRole: 'owner' | 'admin' | 'operator' }>(`/api/processes/${id}`);
 }
 
 export async function createProcess(data: InsertProcess) {
@@ -64,11 +64,11 @@ export async function deleteProcess(id: string) {
 // Node API
 export async function getNodes(processId?: string) {
   const url = processId ? `/api/nodes?processId=${processId}` : '/api/nodes';
-  return fetchAPI<(Node & { userRole: 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null })[]>(url);
+  return fetchAPI<(Node & { userRole: 'owner' | 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null })[]>(url);
 }
 
 export async function getNode(id: string) {
-  return fetchAPI<Node & { userRole: 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null }>(`/api/nodes/${id}`);
+  return fetchAPI<Node & { userRole: 'owner' | 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null }>(`/api/nodes/${id}`);
 }
 
 export async function createNode(data: InsertNode) {
@@ -126,17 +126,17 @@ export async function getDowntimeEvents(filters?: { processId?: string; nodeId?:
   return fetchAPI<DowntimeEvent[]>(url);
 }
 
-export async function startDowntime(nodeId: string) {
+export async function startDowntime(nodeId: string, reasonId: string) {
   return fetchAPI<DowntimeEvent>('/api/downtime-events/start', {
     method: 'POST',
-    body: JSON.stringify({ nodeId }),
+    body: JSON.stringify({ nodeId, reasonId }),
   });
 }
 
-export async function stopDowntime(nodeId: string, reasonId: string) {
+export async function stopDowntime(nodeId: string) {
   return fetchAPI<DowntimeEvent>('/api/downtime-events/stop', {
     method: 'POST',
-    body: JSON.stringify({ nodeId, reasonId }),
+    body: JSON.stringify({ nodeId }),
   });
 }
 

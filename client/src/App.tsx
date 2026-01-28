@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 // Pages
 import AuthPage from "@/pages/auth";
 import Dashboard from "@/pages/dashboard";
+import ProcessesPage from "@/pages/processes";
 import ProcessView from "@/pages/process-view";
 import NodeView from "@/pages/node-view";
 import AdminPage from "@/pages/admin";
@@ -59,7 +60,7 @@ function Router() {
       </Route>
       
       <Route path="/processes">
-         <Redirect to="/" />
+        <ProtectedRoute component={ProcessesPage} />
       </Route>
 
       <Route component={NotFound} />
