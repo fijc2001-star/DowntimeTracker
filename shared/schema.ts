@@ -9,7 +9,6 @@ export * from "./models/auth";
 
 // Enums
 export const roleEnum = pgEnum("role", ["owner", "admin", "operator"]);
-export const downtimeReasonCategoryEnum = pgEnum("downtime_reason_category", ["mechanical", "electrical", "operational", "external"]);
 
 // Processes table
 export const processes = pgTable("processes", {
@@ -54,7 +53,6 @@ export const downtimeReasons = pgTable("downtime_reasons", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   processId: varchar("process_id").notNull().references(() => processes.id, { onDelete: "cascade" }),
   label: text("label").notNull(),
-  category: downtimeReasonCategoryEnum("category").notNull(),
   isActive: boolean("is_active").default(true).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

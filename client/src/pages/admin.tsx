@@ -373,13 +373,6 @@ function ProcessPermissionsCard({
   );
 }
 
-const CATEGORY_COLORS: Record<string, string> = {
-  mechanical: 'bg-orange-100 text-orange-800',
-  electrical: 'bg-blue-100 text-blue-800',
-  operational: 'bg-purple-100 text-purple-800',
-  external: 'bg-gray-100 text-gray-800',
-};
-
 function DowntimeReasonsSection() {
   const { data: ownedProcesses = [] } = useMyOwnedProcesses();
   const [selectedProcessId, setSelectedProcessId] = React.useState('');
@@ -388,7 +381,6 @@ function DowntimeReasonsSection() {
   const [editingReason, setEditingReason] = React.useState<DowntimeReason | null>(null);
   
   const [reasonLabel, setReasonLabel] = React.useState('');
-  const [reasonCategory, setReasonCategory] = React.useState<'mechanical' | 'electrical' | 'operational' | 'external'>('mechanical');
   
   const { data: reasons = [] } = useDowntimeReasonsByProcess(selectedProcessId, true);
   const createReason = useCreateDowntimeReason();
@@ -409,12 +401,11 @@ function DowntimeReasonsSection() {
     }
     
     createReason.mutate(
-      { processId: selectedProcessId, data: { label: reasonLabel, category: reasonCategory, isActive: true } },
+      { processId: selectedProcessId, data: { label: reasonLabel, isActive: true } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Downtime reason created' });
           setReasonLabel('');
-          setReasonCategory('mechanical');
           setAddDialogOpen(false);
         },
         onError: () => {
@@ -427,7 +418,6 @@ function DowntimeReasonsSection() {
   const handleEditReason = (reason: DowntimeReason) => {
     setEditingReason(reason);
     setReasonLabel(reason.label);
-    setReasonCategory(reason.category as 'mechanical' | 'electrical' | 'operational' | 'external');
     setEditDialogOpen(true);
   };
   
@@ -435,7 +425,7 @@ function DowntimeReasonsSection() {
     if (!editingReason || !reasonLabel.trim()) return;
     
     updateReason.mutate(
-      { id: editingReason.id, processId: selectedProcessId, data: { label: reasonLabel, category: reasonCategory } },
+      { id: editingReason.id, processId: selectedProcessId, data: { label: reasonLabel } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Reason updated' });
@@ -525,20 +515,6 @@ function DowntimeReasonsSection() {
                   data-testid="input-reason-label"
                 />
               </div>
-              <div className="space-y-2">
-                <Label>Category</Label>
-                <Select value={reasonCategory} onValueChange={(v: any) => setReasonCategory(v)}>
-                  <SelectTrigger data-testid="select-reason-category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="mechanical">Mechanical</SelectItem>
-                    <SelectItem value="electrical">Electrical</SelectItem>
-                    <SelectItem value="operational">Operational</SelectItem>
-                    <SelectItem value="external">External</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setAddDialogOpen(false)}>Cancel</Button>
@@ -559,7 +535,6 @@ function DowntimeReasonsSection() {
           <TableHeader>
             <TableRow>
               <TableHead>Reason</TableHead>
-              <TableHead>Category</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -568,11 +543,6 @@ function DowntimeReasonsSection() {
             {reasons.map(reason => (
               <TableRow key={reason.id} className={!reason.isActive ? 'opacity-50' : ''} data-testid={`row-reason-${reason.id}`}>
                 <TableCell className="font-medium">{reason.label}</TableCell>
-                <TableCell>
-                  <Badge variant="outline" className={CATEGORY_COLORS[reason.category]}>
-                    {reason.category.charAt(0).toUpperCase() + reason.category.slice(1)}
-                  </Badge>
-                </TableCell>
                 <TableCell>
                   <Badge variant={reason.isActive ? 'default' : 'secondary'}>
                     {reason.isActive ? 'Active' : 'Disabled'}
@@ -637,20 +607,6 @@ function DowntimeReasonsSection() {
                 placeholder="e.g. Motor Failure"
                 data-testid="input-edit-reason-label"
               />
-            </div>
-            <div className="space-y-2">
-              <Label>Category</Label>
-              <Select value={reasonCategory} onValueChange={(v: any) => setReasonCategory(v)}>
-                <SelectTrigger data-testid="select-edit-reason-category">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mechanical">Mechanical</SelectItem>
-                  <SelectItem value="electrical">Electrical</SelectItem>
-                  <SelectItem value="operational">Operational</SelectItem>
-                  <SelectItem value="external">External</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
           <DialogFooter>
