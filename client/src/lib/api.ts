@@ -168,6 +168,18 @@ export async function getMyOwnedProcesses() {
   return fetchAPI<Process[]>('/api/processes/owned');
 }
 
+// Get current user's assignments (for self de-assignment)
+export async function getMyAssignments() {
+  return fetchAPI<{
+    id: string;
+    role: string;
+    processId: string | null;
+    nodeId: string | null;
+    processName?: string;
+    nodeName?: string;
+  }[]>('/api/permissions/my-assignments');
+}
+
 // Assign permission with process-level node expansion
 export async function assignPermission(data: { userId: string; processId?: string; nodeId?: string; role: 'admin' | 'operator' }) {
   return fetchAPI<UserPermission>('/api/permissions/assign', {

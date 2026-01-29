@@ -698,7 +698,19 @@ export async function registerRoutes(
     }
   });
 
-  // Delete permission (admin only)
+  // Get current user's own assignments (for self de-assignment)
+  app.get("/api/permissions/my-assignments", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const assignments = await storage.getUserAssignmentsWithDetails(userId);
+      res.json(assignments);
+    } catch (error) {
+      console.error("Error fetching user assignments:", error);
+      res.status(500).json({ message: "Failed to fetch assignments" });
+    }
+  });
+
+  // Delete permission (admin or self-removal)
   app.delete("/api/permissions/:id", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
@@ -716,16 +728,21 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Cannot revoke owner access. Delete the process instead." });
       }
       
-      // Check if user has admin rights to modify this permission
-      if (targetPerm.processId) {
-        const hasAdmin = await storage.hasProcessAccess(userId, targetPerm.processId, 'admin');
-        if (!hasAdmin) {
-          return res.status(403).json({ message: "Admin access required" });
-        }
-      } else if (targetPerm.nodeId) {
-        const hasAdmin = await storage.hasNodeAccess(userId, targetPerm.nodeId, 'admin');
-        if (!hasAdmin) {
-          return res.status(403).json({ message: "Admin access required" });
+      // Allow self-removal (user can always remove their own permission)
+      const isSelfRemoval = targetPerm.userId === userId;
+      
+      if (!isSelfRemoval) {
+        // Check if user has admin rights to modify this permission
+        if (targetPerm.processId) {
+          const hasAdmin = await storage.hasProcessAccess(userId, targetPerm.processId, 'admin');
+          if (!hasAdmin) {
+            return res.status(403).json({ message: "Admin access required" });
+          }
+        } else if (targetPerm.nodeId) {
+          const hasAdmin = await storage.hasNodeAccess(userId, targetPerm.nodeId, 'admin');
+          if (!hasAdmin) {
+            return res.status(403).json({ message: "Admin access required" });
+          }
         }
       }
       

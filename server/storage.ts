@@ -51,6 +51,14 @@ export interface IStorage {
   getUserAccessibleProcesses(userId: string): Promise<Process[]>;
   getUserAccessibleNodes(userId: string): Promise<Node[]>;
   getUserOwnedProcesses(userId: string): Promise<Process[]>;
+  getUserAssignmentsWithDetails(userId: string): Promise<{
+    id: string;
+    role: string;
+    processId: string | null;
+    nodeId: string | null;
+    processName?: string;
+    nodeName?: string;
+  }[]>;
   
   // User operations
   getAllUsers(): Promise<{ id: string; email: string; firstName?: string | null; lastName?: string | null }[]>;
@@ -467,6 +475,63 @@ export class DatabaseStorage implements IStorage {
         inArray(processes.id, processIds),
         eq(processes.isActive, true)
       ));
+  }
+
+  async getUserAssignmentsWithDetails(userId: string): Promise<{
+    id: string;
+    role: string;
+    processId: string | null;
+    nodeId: string | null;
+    processName?: string;
+    nodeName?: string;
+  }[]> {
+    // Get all permissions for this user (excluding owner since they can't de-assign themselves from owned)
+    const perms = await db.select()
+      .from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        sql`${userPermissions.role} != 'owner'`
+      ));
+    
+    const result = [];
+    
+    for (const perm of perms) {
+      let processName: string | undefined;
+      let nodeName: string | undefined;
+      
+      if (perm.processId) {
+        const [proc] = await db.select({ name: processes.name })
+          .from(processes)
+          .where(eq(processes.id, perm.processId));
+        processName = proc?.name;
+      }
+      
+      if (perm.nodeId) {
+        const [nodeData] = await db.select({ name: nodes.name, processId: nodes.processId })
+          .from(nodes)
+          .where(eq(nodes.id, perm.nodeId));
+        nodeName = nodeData?.name;
+        
+        // Also get process name for node assignments
+        if (nodeData?.processId && !processName) {
+          const [proc] = await db.select({ name: processes.name })
+            .from(processes)
+            .where(eq(processes.id, nodeData.processId));
+          processName = proc?.name;
+        }
+      }
+      
+      result.push({
+        id: perm.id,
+        role: perm.role,
+        processId: perm.processId,
+        nodeId: perm.nodeId,
+        processName,
+        nodeName,
+      });
+    }
+    
+    return result;
   }
 
   async getAllUsers(): Promise<{ id: string; email: string; firstName?: string | null; lastName?: string | null }[]> {

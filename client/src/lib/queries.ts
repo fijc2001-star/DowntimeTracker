@@ -256,6 +256,14 @@ export function useMyOwnedProcesses() {
   });
 }
 
+// Get current user's assignments for self de-assignment
+export function useMyAssignments() {
+  return useQuery({
+    queryKey: ['permissions', 'my-assignments'],
+    queryFn: api.getMyAssignments,
+  });
+}
+
 // Assign permission with process-level expansion
 export function useAssignPermission() {
   const queryClient = useQueryClient();

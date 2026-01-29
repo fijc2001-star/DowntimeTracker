@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason } from '@/lib/queries';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason } from '@/lib/queries';
 import type { DowntimeReason } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 
@@ -278,6 +278,115 @@ function AuthorizationSection() {
           />
         ))}
       </div>
+    </div>
+  );
+}
+
+function MyAssignmentsSection() {
+  const { data: assignments = [], isLoading } = useMyAssignments();
+  const revokePermission = useRevokePermission();
+  const { toast } = useToast();
+  
+  const handleLeaveAssignment = async (permissionId: string) => {
+    try {
+      await revokePermission.mutateAsync(permissionId);
+      toast({ title: 'Left assignment', description: 'You have been removed from this assignment.' });
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message || 'Failed to leave assignment', variant: 'destructive' });
+    }
+  };
+  
+  if (isLoading) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        Loading your assignments...
+      </div>
+    );
+  }
+  
+  if (assignments.length === 0) {
+    return (
+      <div className="text-center py-8 text-muted-foreground">
+        <Shield className="h-12 w-12 mx-auto mb-4 opacity-50" />
+        <p>You don't have any assigned processes or nodes.</p>
+        <p className="text-sm">Contact an administrator to get access.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="space-y-4">
+      <p className="text-muted-foreground">
+        View your access assignments. You can leave any assignment you no longer need.
+      </p>
+      
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Resource</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {assignments.map((assignment) => (
+            <TableRow key={assignment.id}>
+              <TableCell>
+                {assignment.nodeName ? (
+                  <div>
+                    <div className="font-medium">{assignment.nodeName}</div>
+                    <div className="text-xs text-muted-foreground">in {assignment.processName}</div>
+                  </div>
+                ) : (
+                  <div className="font-medium">{assignment.processName}</div>
+                )}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">
+                  {assignment.nodeId ? 'Node' : 'Process'}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant={assignment.role === 'admin' ? 'secondary' : 'outline'}>
+                  {assignment.role === 'admin' ? 'Admin' : 'Operator'}
+                </Badge>
+              </TableCell>
+              <TableCell className="text-right">
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="text-destructive hover:text-destructive"
+                      data-testid={`button-leave-${assignment.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" /> Leave
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Leave Assignment?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        You will lose access to {assignment.nodeName || assignment.processName}. You'll need an admin to re-assign you if needed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={() => handleLeaveAssignment(assignment.id)}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        Leave
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
@@ -999,12 +1108,22 @@ export default function AdminPage() {
         </Table>
       </CollapsibleSection>
 
+      {/* My Assignments */}
+      <CollapsibleSection
+        title="My Assignments"
+        description="View and manage your access assignments"
+        icon={Shield}
+        defaultOpen={true}
+      >
+        <MyAssignmentsSection />
+      </CollapsibleSection>
+
       {/* Authorization Management */}
       <CollapsibleSection
         title="Authorization"
         description="Manage user access to processes and nodes"
         icon={Users}
-        defaultOpen={true}
+        defaultOpen={false}
       >
         <AuthorizationSection />
       </CollapsibleSection>
