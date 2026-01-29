@@ -22,21 +22,41 @@ function formatDuration(ms: number): string {
 
 export default function Dashboard() {
   const [entityType, setEntityType] = useState<EntityType>('process');
-  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
   const { data: adminNodes = [], isLoading: nodesLoading } = useAdminNodes();
+
+  const uniqueAdminNodes = useMemo(() => {
+    const seen = new Set<string>();
+    return adminNodes.filter((node) => {
+      if (seen.has(node.id)) return false;
+      seen.add(node.id);
+      return true;
+    });
+  }, [adminNodes]);
+
+  const filteredNodes = useMemo(() => {
+    if (!selectedProcessId) return [];
+    return uniqueAdminNodes.filter((node) => node.processId === selectedProcessId);
+  }, [uniqueAdminNodes, selectedProcessId]);
+
+  const selectedEntityId = entityType === 'process' ? selectedProcessId : selectedNodeId;
+
   const { data: stats = [], isLoading: statsLoading } = useDowntimeStatsByReason(
     selectedEntityId ? entityType : null,
     selectedEntityId
   );
 
-  const entities = entityType === 'process' ? adminProcesses : adminNodes;
-  const isLoadingEntities = entityType === 'process' ? processesLoading : nodesLoading;
+  React.useEffect(() => {
+    setSelectedProcessId(null);
+    setSelectedNodeId(null);
+  }, [entityType]);
 
   React.useEffect(() => {
-    setSelectedEntityId(null);
-  }, [entityType]);
+    setSelectedNodeId(null);
+  }, [selectedProcessId]);
 
   const chartData = useMemo(() => {
     if (stats.length === 0) return [];
@@ -77,7 +97,7 @@ export default function Dashboard() {
     return null;
   };
 
-  const hasNoAccess = adminProcesses.length === 0 && adminNodes.length === 0 && !processesLoading && !nodesLoading;
+  const hasNoAccess = adminProcesses.length === 0 && uniqueAdminNodes.length === 0 && !processesLoading && !nodesLoading;
 
   return (
     <div className="space-y-6">
@@ -108,7 +128,7 @@ export default function Dashboard() {
               <CardDescription>Select an entity to view its downtime breakdown</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className={`grid grid-cols-1 gap-4 ${entityType === 'node' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="entity-type">Entity Type</Label>
                   <Select
@@ -124,43 +144,115 @@ export default function Dashboard() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="entity-select">
-                    {entityType === 'process' ? 'Select Process' : 'Select Node'}
-                  </Label>
-                  {isLoadingEntities ? (
-                    <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-muted-foreground text-sm">Loading...</span>
+
+                {entityType === 'process' ? (
+                  <div className="space-y-2">
+                    <Label htmlFor="process-select">Select Process</Label>
+                    {processesLoading ? (
+                      <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-muted-foreground text-sm">Loading...</span>
+                      </div>
+                    ) : adminProcesses.length === 0 ? (
+                      <div className="h-10 px-3 border rounded-md bg-muted/50 flex items-center">
+                        <span className="text-muted-foreground text-sm">No processes with admin access</span>
+                      </div>
+                    ) : (
+                      <Select
+                        value={selectedProcessId || ''}
+                        onValueChange={(value) => setSelectedProcessId(value || null)}
+                      >
+                        <SelectTrigger id="process-select" data-testid="select-process">
+                          <SelectValue placeholder="Select a process" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {adminProcesses.map((process) => (
+                            <SelectItem
+                              key={process.id}
+                              value={process.id}
+                              data-testid={`option-process-${process.id}`}
+                            >
+                              {process.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="process-filter">Select Process</Label>
+                      {processesLoading ? (
+                        <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground text-sm">Loading...</span>
+                        </div>
+                      ) : adminProcesses.length === 0 ? (
+                        <div className="h-10 px-3 border rounded-md bg-muted/50 flex items-center">
+                          <span className="text-muted-foreground text-sm">No processes with admin access</span>
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedProcessId || ''}
+                          onValueChange={(value) => setSelectedProcessId(value || null)}
+                        >
+                          <SelectTrigger id="process-filter" data-testid="select-process-filter">
+                            <SelectValue placeholder="Select a process first" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {adminProcesses.map((process) => (
+                              <SelectItem
+                                key={process.id}
+                                value={process.id}
+                                data-testid={`option-filter-process-${process.id}`}
+                              >
+                                {process.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
-                  ) : entities.length === 0 ? (
-                    <div className="h-10 px-3 border rounded-md bg-muted/50 flex items-center">
-                      <span className="text-muted-foreground text-sm">
-                        No {entityType === 'process' ? 'processes' : 'nodes'} with admin access
-                      </span>
+                    <div className="space-y-2">
+                      <Label htmlFor="node-select">Select Node</Label>
+                      {nodesLoading ? (
+                        <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span className="text-muted-foreground text-sm">Loading...</span>
+                        </div>
+                      ) : !selectedProcessId ? (
+                        <div className="h-10 px-3 border rounded-md bg-muted/50 flex items-center">
+                          <span className="text-muted-foreground text-sm">Select a process first</span>
+                        </div>
+                      ) : filteredNodes.length === 0 ? (
+                        <div className="h-10 px-3 border rounded-md bg-muted/50 flex items-center">
+                          <span className="text-muted-foreground text-sm">No nodes in this process</span>
+                        </div>
+                      ) : (
+                        <Select
+                          value={selectedNodeId || ''}
+                          onValueChange={(value) => setSelectedNodeId(value || null)}
+                        >
+                          <SelectTrigger id="node-select" data-testid="select-node">
+                            <SelectValue placeholder="Select a node" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {filteredNodes.map((node) => (
+                              <SelectItem
+                                key={node.id}
+                                value={node.id}
+                                data-testid={`option-node-${node.id}`}
+                              >
+                                {node.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
-                  ) : (
-                    <Select
-                      value={selectedEntityId || ''}
-                      onValueChange={(value) => setSelectedEntityId(value || null)}
-                    >
-                      <SelectTrigger id="entity-select" data-testid="select-entity">
-                        <SelectValue placeholder={`Select a ${entityType}`} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {entities.map((entity) => (
-                          <SelectItem
-                            key={entity.id}
-                            value={entity.id}
-                            data-testid={`option-entity-${entity.id}`}
-                          >
-                            {entity.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                </div>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>
