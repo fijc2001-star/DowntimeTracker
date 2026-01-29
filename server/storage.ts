@@ -654,7 +654,8 @@ export class DatabaseStorage implements IStorage {
     
     // Combine and deduplicate process IDs
     const directProcessIds = directPerms.map(p => p.processId).filter((id): id is string => id !== null);
-    const allProcessIds = [...new Set([...directProcessIds, ...nodeProcessIds])];
+    const combinedIds = [...directProcessIds, ...nodeProcessIds];
+    const allProcessIds = combinedIds.filter((id, index) => combinedIds.indexOf(id) === index);
     
     if (allProcessIds.length === 0) return [];
     
