@@ -357,7 +357,7 @@ export class DatabaseStorage implements IStorage {
 
   // Access control helpers
   async hasProcessAccess(userId: string, processId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean> {
-    // Check for direct process permission
+    // Check for direct process permission only (node-level permissions don't grant process-level access)
     const [permission] = await db.select().from(userPermissions)
       .where(and(
         eq(userPermissions.userId, userId),
@@ -372,25 +372,14 @@ export class DatabaseStorage implements IStorage {
       if (permission.role === 'admin' || permission.role === 'owner') return true;
     }
     
-    // Also check if user has node-level permission for any node in this process
-    // For admin requirement: only admin/owner node permissions count
-    // For operator or no requirement: any node permission grants access
+    // For admin requirement, only direct process permissions grant access
+    // Node-level admin does NOT grant process-level analytics access
     if (requiredRole === 'admin') {
-      const [adminNodePerm] = await db.select({ role: userPermissions.role })
-        .from(userPermissions)
-        .innerJoin(nodes, eq(userPermissions.nodeId, nodes.id))
-        .where(and(
-          eq(userPermissions.userId, userId),
-          eq(nodes.processId, processId),
-          sql`${userPermissions.nodeId} IS NOT NULL`,
-          sql`${userPermissions.role} IN ('owner', 'admin')`  // Only admin/owner roles
-        ))
-        .limit(1);
-      
-      return !!adminNodePerm;
+      return false;
     }
     
-    // For operator or no role requirement, any node permission grants access
+    // For operator or no role requirement, also check node-level permissions
+    // This allows users with node access to see the process in listings
     const [anyNodePerm] = await db.select({ role: userPermissions.role })
       .from(userPermissions)
       .innerJoin(nodes, eq(userPermissions.nodeId, nodes.id))
@@ -657,45 +646,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserAdminProcesses(userId: string): Promise<Process[]> {
-    // Get processes where user has direct admin/owner access
+    // Get processes where user has direct admin/owner access (not node-level)
+    // Node-level admin does NOT grant process-level analytics access
     const directPerms = await db.select({ processId: userPermissions.processId })
       .from(userPermissions)
       .where(and(
         eq(userPermissions.userId, userId),
         sql`${userPermissions.role} IN ('owner', 'admin')`,
-        sql`${userPermissions.processId} IS NOT NULL`
+        sql`${userPermissions.processId} IS NOT NULL`,
+        sql`${userPermissions.nodeId} IS NULL`  // Only direct process permissions
       ));
     
-    // Also get processes where user has admin/owner access to any node within
-    const nodePerms = await db.select({ nodeId: userPermissions.nodeId })
-      .from(userPermissions)
-      .where(and(
-        eq(userPermissions.userId, userId),
-        sql`${userPermissions.role} IN ('owner', 'admin')`,
-        sql`${userPermissions.nodeId} IS NOT NULL`
-      ));
+    const processIds = directPerms.map(p => p.processId).filter((id): id is string => id !== null);
     
-    const nodeIds = nodePerms.map(p => p.nodeId).filter((id): id is string => id !== null);
-    
-    // Get process IDs from those nodes
-    let nodeProcessIds: string[] = [];
-    if (nodeIds.length > 0) {
-      const nodeProcesses = await db.select({ processId: nodes.processId })
-        .from(nodes)
-        .where(inArray(nodes.id, nodeIds));
-      nodeProcessIds = nodeProcesses.map(n => n.processId);
-    }
-    
-    // Combine and deduplicate process IDs
-    const directProcessIds = directPerms.map(p => p.processId).filter((id): id is string => id !== null);
-    const combinedIds = [...directProcessIds, ...nodeProcessIds];
-    const allProcessIds = combinedIds.filter((id, index) => combinedIds.indexOf(id) === index);
-    
-    if (allProcessIds.length === 0) return [];
+    if (processIds.length === 0) return [];
     
     return await db.select().from(processes)
       .where(and(
-        inArray(processes.id, allProcessIds),
+        inArray(processes.id, processIds),
         eq(processes.isActive, true)
       ));
   }
