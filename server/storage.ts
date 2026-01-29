@@ -54,6 +54,11 @@ export interface IStorage {
   
   // User operations
   getAllUsers(): Promise<{ id: string; email: string; firstName?: string | null; lastName?: string | null }[]>;
+  
+  // Analytics
+  getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string): Promise<{ reasonLabel: string; totalDuration: number }[]>;
+  getUserAdminProcesses(userId: string): Promise<Process[]>;
+  getUserAdminNodes(userId: string): Promise<Node[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -471,6 +476,105 @@ export class DatabaseStorage implements IStorage {
       firstName: users.firstName,
       lastName: users.lastName,
     }).from(users);
+  }
+
+  async getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string): Promise<{ reasonLabel: string; totalDuration: number }[]> {
+    const now = new Date();
+    
+    // Build the query based on entity type
+    const whereCondition = entityType === 'process'
+      ? eq(downtimeEvents.processId, entityId)
+      : eq(downtimeEvents.nodeId, entityId);
+    
+    // Get all completed downtime events for this entity with their reasons
+    const events = await db
+      .select({
+        reasonId: downtimeEvents.reasonId,
+        startTime: downtimeEvents.startTime,
+        endTime: downtimeEvents.endTime,
+      })
+      .from(downtimeEvents)
+      .where(whereCondition);
+    
+    // Get all reasons for lookup
+    const reasonList = await db.select().from(downtimeReasons);
+    const reasonMap = new Map(reasonList.map(r => [r.id, r.label]));
+    
+    // Calculate duration per reason
+    const durationByReason: Record<string, number> = {};
+    
+    for (const event of events) {
+      const end = event.endTime ? new Date(event.endTime) : now;
+      const start = new Date(event.startTime);
+      const durationMs = end.getTime() - start.getTime();
+      
+      const reasonLabel = event.reasonId ? (reasonMap.get(event.reasonId) || 'Unknown') : 'No Reason';
+      durationByReason[reasonLabel] = (durationByReason[reasonLabel] || 0) + durationMs;
+    }
+    
+    // Convert to array and sort by duration descending
+    return Object.entries(durationByReason)
+      .map(([reasonLabel, totalDuration]) => ({ reasonLabel, totalDuration }))
+      .sort((a, b) => b.totalDuration - a.totalDuration);
+  }
+
+  async getUserAdminProcesses(userId: string): Promise<Process[]> {
+    const perms = await db.select({ processId: userPermissions.processId })
+      .from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        sql`${userPermissions.role} IN ('owner', 'admin')`,
+        sql`${userPermissions.processId} IS NOT NULL`
+      ));
+    
+    if (perms.length === 0) return [];
+    
+    const processIds = perms.map(p => p.processId).filter((id): id is string => id !== null);
+    return await db.select().from(processes)
+      .where(and(
+        inArray(processes.id, processIds),
+        eq(processes.isActive, true)
+      ));
+  }
+
+  async getUserAdminNodes(userId: string): Promise<Node[]> {
+    // Get nodes where user has direct admin/owner permission
+    const directPerms = await db.select({ nodeId: userPermissions.nodeId })
+      .from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        sql`${userPermissions.role} IN ('owner', 'admin')`,
+        sql`${userPermissions.nodeId} IS NOT NULL`
+      ));
+    
+    const directNodeIds = directPerms.map(p => p.nodeId).filter((id): id is string => id !== null);
+    
+    // Get nodes in processes where user has admin/owner access
+    const adminProcesses = await this.getUserAdminProcesses(userId);
+    const adminProcessIds = adminProcesses.map(p => p.id);
+    
+    // Fetch both sets
+    const directNodes = directNodeIds.length > 0 
+      ? await db.select().from(nodes).where(and(
+          inArray(nodes.id, directNodeIds),
+          eq(nodes.isActive, true)
+        ))
+      : [];
+    
+    const processNodes = adminProcessIds.length > 0
+      ? await db.select().from(nodes).where(and(
+          inArray(nodes.processId, adminProcessIds),
+          eq(nodes.isActive, true)
+        ))
+      : [];
+    
+    // Merge and deduplicate
+    const allNodes = [...directNodes, ...processNodes];
+    const uniqueNodes = allNodes.filter((node, index, self) =>
+      index === self.findIndex(n => n.id === node.id)
+    );
+    
+    return uniqueNodes;
   }
 }
 

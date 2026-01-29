@@ -500,6 +500,63 @@ export async function registerRoutes(
     }
   });
 
+  // ===== ANALYTICS ENDPOINTS =====
+  
+  // Get processes where user has admin/owner access (for dashboard)
+  app.get("/api/analytics/admin-processes", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const adminProcesses = await storage.getUserAdminProcesses(userId);
+      res.json(adminProcesses);
+    } catch (error) {
+      console.error("Error fetching admin processes:", error);
+      res.status(500).json({ message: "Failed to fetch admin processes" });
+    }
+  });
+  
+  // Get nodes where user has admin/owner access (for dashboard)
+  app.get("/api/analytics/admin-nodes", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const adminNodes = await storage.getUserAdminNodes(userId);
+      res.json(adminNodes);
+    } catch (error) {
+      console.error("Error fetching admin nodes:", error);
+      res.status(500).json({ message: "Failed to fetch admin nodes" });
+    }
+  });
+  
+  // Get downtime stats by reason for a process or node
+  app.get("/api/analytics/downtime-stats/:entityType/:entityId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { entityType, entityId } = req.params;
+      
+      if (entityType !== 'process' && entityType !== 'node') {
+        return res.status(400).json({ message: "Invalid entity type" });
+      }
+      
+      // Check admin/owner access
+      if (entityType === 'process') {
+        const hasAccess = await storage.hasProcessAccess(userId, entityId, 'admin');
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Access denied - admin/owner required" });
+        }
+      } else {
+        const hasAccess = await storage.hasNodeAccess(userId, entityId, 'admin');
+        if (!hasAccess) {
+          return res.status(403).json({ message: "Access denied - admin/owner required" });
+        }
+      }
+      
+      const stats = await storage.getDowntimeStatsByReason(entityType, entityId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching downtime stats:", error);
+      res.status(500).json({ message: "Failed to fetch downtime stats" });
+    }
+  });
+
   // ===== USER ENDPOINTS =====
   
   // Get all users (for authorization assignment)

@@ -284,3 +284,26 @@ export function useRevokePermission() {
     },
   });
 }
+
+// Analytics Queries
+export function useAdminProcesses() {
+  return useQuery({
+    queryKey: ['analytics', 'admin-processes'],
+    queryFn: api.getAdminProcesses,
+  });
+}
+
+export function useAdminNodes() {
+  return useQuery({
+    queryKey: ['analytics', 'admin-nodes'],
+    queryFn: api.getAdminNodes,
+  });
+}
+
+export function useDowntimeStatsByReason(entityType: 'process' | 'node' | null, entityId: string | null) {
+  return useQuery({
+    queryKey: ['analytics', 'downtime-stats', entityType, entityId],
+    queryFn: () => api.getDowntimeStatsByReason(entityType!, entityId!),
+    enabled: !!entityType && !!entityId,
+  });
+}

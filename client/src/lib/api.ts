@@ -175,3 +175,16 @@ export async function assignPermission(data: { userId: string; processId?: strin
     body: JSON.stringify(data),
   });
 }
+
+// Analytics API
+export async function getAdminProcesses() {
+  return fetchAPI<Process[]>('/api/analytics/admin-processes');
+}
+
+export async function getAdminNodes() {
+  return fetchAPI<Node[]>('/api/analytics/admin-nodes');
+}
+
+export async function getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string) {
+  return fetchAPI<{ reasonLabel: string; totalDuration: number }[]>(`/api/analytics/downtime-stats/${entityType}/${entityId}`);
+}
