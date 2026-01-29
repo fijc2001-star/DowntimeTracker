@@ -557,6 +557,26 @@ export async function registerRoutes(
     }
   });
 
+  // Get downtime stats by node for a process
+  app.get("/api/analytics/downtime-stats-by-node/:processId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { processId } = req.params;
+      
+      // Check admin/owner access
+      const hasAccess = await storage.hasProcessAccess(userId, processId, 'admin');
+      if (!hasAccess) {
+        return res.status(403).json({ message: "Access denied - admin/owner required" });
+      }
+      
+      const stats = await storage.getDowntimeStatsByNode(processId);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching downtime stats by node:", error);
+      res.status(500).json({ message: "Failed to fetch downtime stats by node" });
+    }
+  });
+
   // ===== USER ENDPOINTS =====
   
   // Get all users (for authorization assignment)

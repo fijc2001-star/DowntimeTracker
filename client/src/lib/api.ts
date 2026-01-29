@@ -188,3 +188,7 @@ export async function getAdminNodes() {
 export async function getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string) {
   return fetchAPI<{ reasonLabel: string; totalDuration: number }[]>(`/api/analytics/downtime-stats/${entityType}/${entityId}`);
 }
+
+export async function getDowntimeStatsByNode(processId: string) {
+  return fetchAPI<{ nodeId: string; nodeName: string; totalDuration: number }[]>(`/api/analytics/downtime-stats-by-node/${processId}`);
+}

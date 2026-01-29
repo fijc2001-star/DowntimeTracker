@@ -307,3 +307,11 @@ export function useDowntimeStatsByReason(entityType: 'process' | 'node' | null, 
     enabled: !!entityType && !!entityId,
   });
 }
+
+export function useDowntimeStatsByNode(processId: string | null) {
+  return useQuery({
+    queryKey: ['analytics', 'downtime-stats-by-node', processId],
+    queryFn: () => api.getDowntimeStatsByNode(processId!),
+    enabled: !!processId,
+  });
+}

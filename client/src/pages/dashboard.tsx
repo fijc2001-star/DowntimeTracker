@@ -1,12 +1,14 @@
 import React, { useState, useMemo } from 'react';
-import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason } from '@/lib/queries';
+import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntimeStatsByNode } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { BarChart3, Loader2, Filter, AlertTriangle } from 'lucide-react';
 import { Label } from '@/components/ui/label';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 type EntityType = 'process' | 'node';
+type BreakdownType = 'reason' | 'node';
 
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -24,6 +26,7 @@ export default function Dashboard() {
   const [entityType, setEntityType] = useState<EntityType>('process');
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [breakdownType, setBreakdownType] = useState<BreakdownType>('reason');
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
   const { data: adminNodes = [], isLoading: nodesLoading } = useAdminNodes();
@@ -44,14 +47,21 @@ export default function Dashboard() {
 
   const selectedEntityId = entityType === 'process' ? selectedProcessId : selectedNodeId;
 
-  const { data: stats = [], isLoading: statsLoading } = useDowntimeStatsByReason(
+  const { data: reasonStats = [], isLoading: reasonStatsLoading } = useDowntimeStatsByReason(
     selectedEntityId ? entityType : null,
     selectedEntityId
   );
 
+  const { data: nodeStats = [], isLoading: nodeStatsLoading } = useDowntimeStatsByNode(
+    entityType === 'process' && breakdownType === 'node' ? selectedProcessId : null
+  );
+
+  const statsLoading = breakdownType === 'reason' ? reasonStatsLoading : nodeStatsLoading;
+
   React.useEffect(() => {
     setSelectedProcessId(null);
     setSelectedNodeId(null);
+    setBreakdownType('reason');
   }, [entityType]);
 
   React.useEffect(() => {
@@ -59,16 +69,26 @@ export default function Dashboard() {
   }, [selectedProcessId]);
 
   const chartData = useMemo(() => {
-    if (stats.length === 0) return [];
-    
-    const total = stats.reduce((acc, s) => acc + s.totalDuration, 0);
-    return stats.map((s) => ({
-      name: s.reasonLabel,
-      value: s.totalDuration,
-      percentage: total > 0 ? ((s.totalDuration / total) * 100).toFixed(1) : '0',
-      formattedDuration: formatDuration(s.totalDuration),
-    }));
-  }, [stats]);
+    if (breakdownType === 'reason') {
+      if (reasonStats.length === 0) return [];
+      const total = reasonStats.reduce((acc, s) => acc + s.totalDuration, 0);
+      return reasonStats.map((s) => ({
+        name: s.reasonLabel,
+        value: s.totalDuration,
+        percentage: total > 0 ? ((s.totalDuration / total) * 100).toFixed(1) : '0',
+        formattedDuration: formatDuration(s.totalDuration),
+      }));
+    } else {
+      if (nodeStats.length === 0) return [];
+      const total = nodeStats.reduce((acc, s) => acc + s.totalDuration, 0);
+      return nodeStats.map((s) => ({
+        name: s.nodeName,
+        value: s.totalDuration,
+        percentage: total > 0 ? ((s.totalDuration / total) * 100).toFixed(1) : '0',
+        formattedDuration: formatDuration(s.totalDuration),
+      }));
+    }
+  }, [reasonStats, nodeStats, breakdownType]);
 
   const COLORS = [
     'hsl(var(--chart-1))',
@@ -259,13 +279,43 @@ export default function Dashboard() {
 
           <Card>
             <CardHeader>
-              <div className="flex items-center gap-2">
-                <BarChart3 className="h-5 w-5 text-primary" />
-                <CardTitle>Downtime by Reason</CardTitle>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5 text-primary" />
+                  <CardTitle>
+                    Downtime {breakdownType === 'reason' ? 'by Reason' : 'by Node'}
+                  </CardTitle>
+                </div>
+                {entityType === 'process' && selectedProcessId && (
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm text-muted-foreground">Breakdown:</Label>
+                    <ToggleGroup
+                      type="single"
+                      value={breakdownType}
+                      onValueChange={(value) => value && setBreakdownType(value as BreakdownType)}
+                      className="bg-muted rounded-md p-1"
+                    >
+                      <ToggleGroupItem
+                        value="reason"
+                        className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        data-testid="toggle-by-reason"
+                      >
+                        By Reason
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="node"
+                        className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                        data-testid="toggle-by-node"
+                      >
+                        By Node
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+                )}
               </div>
               <CardDescription>
                 {selectedEntityId
-                  ? `Percentage breakdown of downtime reasons`
+                  ? `Percentage breakdown of downtime ${breakdownType === 'reason' ? 'reasons' : 'across nodes'}`
                   : `Select a ${entityType} above to view data`}
               </CardDescription>
             </CardHeader>
@@ -331,7 +381,7 @@ export default function Dashboard() {
                       <div
                         key={item.name}
                         className="flex items-center gap-3 p-3 rounded-lg bg-muted/50"
-                        data-testid={`stat-reason-${index}`}
+                        data-testid={`stat-${breakdownType}-${index}`}
                       >
                         <div
                           className="w-4 h-4 rounded-full shrink-0"

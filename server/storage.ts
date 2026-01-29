@@ -57,6 +57,7 @@ export interface IStorage {
   
   // Analytics
   getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string): Promise<{ reasonLabel: string; totalDuration: number }[]>;
+  getDowntimeStatsByNode(processId: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]>;
   getUserAdminProcesses(userId: string): Promise<Process[]>;
   getUserAdminNodes(userId: string): Promise<Node[]>;
 }
@@ -515,6 +516,44 @@ export class DatabaseStorage implements IStorage {
     // Convert to array and sort by duration descending
     return Object.entries(durationByReason)
       .map(([reasonLabel, totalDuration]) => ({ reasonLabel, totalDuration }))
+      .sort((a, b) => b.totalDuration - a.totalDuration);
+  }
+
+  async getDowntimeStatsByNode(processId: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]> {
+    const now = new Date();
+    
+    // Get all downtime events for this process
+    const events = await db
+      .select({
+        nodeId: downtimeEvents.nodeId,
+        startTime: downtimeEvents.startTime,
+        endTime: downtimeEvents.endTime,
+      })
+      .from(downtimeEvents)
+      .where(eq(downtimeEvents.processId, processId));
+    
+    // Get all nodes in this process for names
+    const nodeList = await db.select().from(nodes).where(eq(nodes.processId, processId));
+    const nodeMap = new Map(nodeList.map(n => [n.id, n.name]));
+    
+    // Calculate duration per node
+    const durationByNode: Record<string, number> = {};
+    
+    for (const event of events) {
+      const end = event.endTime ? new Date(event.endTime) : now;
+      const start = new Date(event.startTime);
+      const durationMs = end.getTime() - start.getTime();
+      
+      durationByNode[event.nodeId] = (durationByNode[event.nodeId] || 0) + durationMs;
+    }
+    
+    // Convert to array with node names and sort by duration descending
+    return Object.entries(durationByNode)
+      .map(([nodeId, totalDuration]) => ({
+        nodeId,
+        nodeName: nodeMap.get(nodeId) || 'Unknown Node',
+        totalDuration,
+      }))
       .sort((a, b) => b.totalDuration - a.totalDuration);
   }
 
