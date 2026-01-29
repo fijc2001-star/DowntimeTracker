@@ -19,7 +19,7 @@ function CollapsibleSection({
   description, 
   icon: Icon, 
   children, 
-  defaultOpen = true,
+  defaultOpen = false,
   headerAction
 }: { 
   title: string; 

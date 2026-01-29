@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, ChevronRight, Factory, Cog, Play, Square, AlertOctagon, Timer, Loader2, X } from 'lucide-react';
+import { ChevronDown, ChevronRight, Factory, Cog, Play, Square, AlertOctagon, Timer, Loader2, ArrowLeft } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import type { Node, DowntimeEvent } from '@shared/schema';
@@ -34,11 +34,11 @@ function getRoleLabel(role: string) {
 function NodeOperationalPanel({ 
   node, 
   processId,
-  onClose 
+  onBack
 }: { 
   node: NodeWithStatus;
   processId: string;
-  onClose: () => void;
+  onBack: () => void;
 }) {
   const { toast } = useToast();
   const { data: reasons = [] } = useDowntimeReasonsByProcess(processId);
@@ -94,117 +94,120 @@ function NodeOperationalPanel({
   };
 
   return (
-    <Card className="border-2 shadow-xl overflow-hidden">
-      <div className={`h-2 w-full ${isDown ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
-      <CardHeader className="text-center pb-4 pt-6 relative">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="absolute right-4 top-4"
-          onClick={onClose}
-          data-testid="button-close-panel"
-        >
-          <X className="h-5 w-5" />
-        </Button>
-        <CardTitle className="text-3xl font-display uppercase tracking-wider" data-testid="text-node-name">{node.name}</CardTitle>
-        <CardDescription className="flex items-center justify-center gap-2">
-          <Badge variant={getRoleBadgeVariant(node.userRole)} data-testid="badge-node-role">
-            {getRoleLabel(node.userRole)}
-          </Badge>
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col items-center gap-6 pb-8">
-        <div className="text-center space-y-2">
-          <div className={`inline-flex items-center gap-3 px-6 py-3 rounded-full text-lg font-bold border ${isDown ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-success/20 text-success border-success/30'}`} data-testid="status-badge">
-            {isDown ? (
-              <><AlertOctagon className="h-5 w-5" /> STOPPED</>
-            ) : (
-              <><Timer className="h-5 w-5" /> RUNNING</>
+    <div className="space-y-6">
+      <Button 
+        variant="ghost" 
+        className="gap-2 text-muted-foreground hover:text-foreground"
+        onClick={onBack}
+        data-testid="button-back"
+      >
+        <ArrowLeft className="h-4 w-4" />
+        Back
+      </Button>
+
+      <Card className="border-2 shadow-xl overflow-hidden">
+        <div className={`h-2 w-full ${isDown ? 'bg-destructive animate-pulse' : 'bg-success'}`} />
+        <CardHeader className="text-center pb-4 pt-8">
+          <CardTitle className="text-4xl font-display uppercase tracking-wider" data-testid="text-node-name">{node.name}</CardTitle>
+          <CardDescription className="flex items-center justify-center gap-2 mt-2">
+            <Badge variant={getRoleBadgeVariant(node.userRole)} data-testid="badge-node-role">
+              {getRoleLabel(node.userRole)}
+            </Badge>
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-8 pb-12">
+          <div className="text-center space-y-4">
+            <div className={`inline-flex items-center gap-3 px-8 py-4 rounded-full text-xl font-bold border ${isDown ? 'bg-destructive/20 text-destructive border-destructive/30' : 'bg-success/20 text-success border-success/30'}`} data-testid="status-badge">
+              {isDown ? (
+                <><AlertOctagon className="h-6 w-6" /> STOPPED</>
+              ) : (
+                <><Timer className="h-6 w-6" /> RUNNING</>
+              )}
+            </div>
+            
+            {isDown && activeEvent && (
+              <div className="text-5xl font-mono font-bold text-destructive mt-6 tabular-nums" data-testid="text-downtime-duration">
+                {formatDistanceToNow(new Date(activeEvent.startTime))}
+              </div>
             )}
           </div>
-          
-          {isDown && activeEvent && (
-            <div className="text-4xl font-mono font-bold text-destructive mt-4 tabular-nums" data-testid="text-downtime-duration">
-              {formatDistanceToNow(new Date(activeEvent.startTime))}
-            </div>
-          )}
-        </div>
 
-        <div className="flex gap-4 w-full max-w-md">
-          {isDown ? (
-            <Button 
-              size="lg" 
-              className="flex-1 h-20 text-xl font-bold bg-success hover:bg-success/90 text-white shadow-lg transition-all hover:scale-[1.02]"
-              onClick={handleResume}
-              disabled={stopDowntime.isPending}
-              data-testid="button-start"
-            >
-              {stopDowntime.isPending ? (
-                <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-              ) : (
-                <Play className="h-6 w-6 mr-2 fill-current" />
-              )}
-              START
-            </Button>
-          ) : (
-            <Button 
-              size="lg" 
-              variant="destructive"
-              className="flex-1 h-20 text-xl font-bold shadow-lg transition-all hover:scale-[1.02]"
-              onClick={() => setStopDialogOpen(true)}
-              disabled={startDowntime.isPending}
-              data-testid="button-stop"
-            >
-              {startDowntime.isPending ? (
-                <Loader2 className="h-6 w-6 mr-2 animate-spin" />
-              ) : (
-                <Square className="h-6 w-6 mr-2 fill-current" />
-              )}
-              STOP
-            </Button>
-          )}
-        </div>
-      </CardContent>
-
-      <Dialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Stop Production</DialogTitle>
-            <DialogDescription>
-              Select the reason for stopping this machine.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <Select value={selectedReason} onValueChange={setSelectedReason}>
-              <SelectTrigger data-testid="select-reason">
-                <SelectValue placeholder="Select a reason" />
-              </SelectTrigger>
-              <SelectContent>
-                {reasons.map(reason => (
-                  <SelectItem key={reason.id} value={reason.id} data-testid={`option-reason-${reason.id}`}>
-                    {reason.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex gap-4 w-full max-w-lg">
+            {isDown ? (
+              <Button 
+                size="lg" 
+                className="flex-1 h-24 text-2xl font-bold bg-success hover:bg-success/90 text-white shadow-lg transition-all hover:scale-[1.02]"
+                onClick={handleResume}
+                disabled={stopDowntime.isPending}
+                data-testid="button-start"
+              >
+                {stopDowntime.isPending ? (
+                  <Loader2 className="h-8 w-8 mr-3 animate-spin" />
+                ) : (
+                  <Play className="h-8 w-8 mr-3 fill-current" />
+                )}
+                START
+              </Button>
+            ) : (
+              <Button 
+                size="lg" 
+                variant="destructive"
+                className="flex-1 h-24 text-2xl font-bold shadow-lg transition-all hover:scale-[1.02]"
+                onClick={() => setStopDialogOpen(true)}
+                disabled={startDowntime.isPending}
+                data-testid="button-stop"
+              >
+                {startDowntime.isPending ? (
+                  <Loader2 className="h-8 w-8 mr-3 animate-spin" />
+                ) : (
+                  <Square className="h-8 w-8 mr-3 fill-current" />
+                )}
+                STOP
+              </Button>
+            )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setStopDialogOpen(false)} data-testid="button-cancel">
-              Cancel
-            </Button>
-            <Button 
-              variant="destructive"
-              onClick={handleStopWithReason} 
-              disabled={!selectedReason || startDowntime.isPending}
-              data-testid="button-confirm-stop"
-            >
-              {startDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Stop Production
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </Card>
+        </CardContent>
+
+        <Dialog open={stopDialogOpen} onOpenChange={setStopDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Stop Production</DialogTitle>
+              <DialogDescription>
+                Select the reason for stopping this machine.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Select value={selectedReason} onValueChange={setSelectedReason}>
+                <SelectTrigger data-testid="select-reason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {reasons.map(reason => (
+                    <SelectItem key={reason.id} value={reason.id} data-testid={`option-reason-${reason.id}`}>
+                      {reason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStopDialogOpen(false)} data-testid="button-cancel">
+                Cancel
+              </Button>
+              <Button 
+                variant="destructive"
+                onClick={handleStopWithReason} 
+                disabled={!selectedReason || startDowntime.isPending}
+                data-testid="button-confirm-stop"
+              >
+                {startDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Stop Production
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </Card>
+    </div>
   );
 }
 
@@ -306,7 +309,6 @@ export default function ProcessesPage() {
 
   const activeProcesses = processes.filter(p => p.isActive);
   
-  // Get fresh node data from query (updates automatically after mutations)
   const selectedNode = selectedNodeId 
     ? (nodes as NodeWithStatus[]).find(n => n.id === selectedNodeId) || null 
     : null;
@@ -319,55 +321,43 @@ export default function ProcessesPage() {
     );
   }
 
+  if (selectedNode) {
+    return (
+      <NodeOperationalPanel
+        node={selectedNode}
+        processId={selectedNode.processId}
+        onBack={() => setSelectedNodeId(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-3xl font-display font-bold text-foreground">Processes</h2>
+        <h2 className="text-3xl font-display font-bold text-foreground">Operations</h2>
         <p className="text-muted-foreground">View all processes and nodes you have access to.</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Process Tree</h3>
-          {activeProcesses.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center text-muted-foreground">
-                <Factory className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium">No Processes Available</p>
-                <p className="text-sm mt-1">You don't have access to any processes yet.</p>
-              </CardContent>
-            </Card>
-          ) : (
-            activeProcesses.map(process => (
-              <ProcessTreeItem
-                key={process.id}
-                process={process as any}
-                nodes={nodes as NodeWithStatus[]}
-                selectedNodeId={selectedNodeId}
-                onSelectNode={(node) => setSelectedNodeId(node ? node.id : null)}
-              />
-            ))
-          )}
-        </div>
-
-        <div className="lg:sticky lg:top-8 space-y-4">
-          <h3 className="text-lg font-semibold">Operations</h3>
-          {selectedNode ? (
-            <NodeOperationalPanel
-              node={selectedNode}
-              processId={selectedNode.processId}
-              onClose={() => setSelectedNodeId(null)}
+      <div className="space-y-4">
+        {activeProcesses.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center text-muted-foreground">
+              <Factory className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p className="text-lg font-medium">No Processes Available</p>
+              <p className="text-sm mt-1">You don't have access to any processes yet.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          activeProcesses.map(process => (
+            <ProcessTreeItem
+              key={process.id}
+              process={process as any}
+              nodes={nodes as NodeWithStatus[]}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={(node) => setSelectedNodeId(node ? node.id : null)}
             />
-          ) : (
-            <Card className="border-dashed">
-              <CardContent className="py-16 text-center text-muted-foreground">
-                <Cog className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                <p className="text-lg font-medium">Select a Node</p>
-                <p className="text-sm mt-1">Click on a node from the process tree to view operations.</p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+          ))
+        )}
       </div>
     </div>
   );
