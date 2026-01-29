@@ -419,14 +419,15 @@ export class DatabaseStorage implements IStorage {
       return nodePerm.role === 'admin' || nodePerm.role === 'owner';
     }
     
-    // Check if user has access via process permission
+    // Check if user has access via direct process permission (not node permissions)
     const [node] = await db.select().from(nodes).where(eq(nodes.id, nodeId));
     if (!node) return false;
     
     const [processPerm] = await db.select().from(userPermissions)
       .where(and(
         eq(userPermissions.userId, userId),
-        eq(userPermissions.processId, node.processId)
+        eq(userPermissions.processId, node.processId),
+        sql`${userPermissions.nodeId} IS NULL`  // Only direct process permissions, not node permissions
       ))
       .limit(1);
     
