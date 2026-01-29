@@ -357,18 +357,51 @@ export class DatabaseStorage implements IStorage {
 
   // Access control helpers
   async hasProcessAccess(userId: string, processId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean> {
+    // Check for direct process permission
     const [permission] = await db.select().from(userPermissions)
       .where(and(
         eq(userPermissions.userId, userId),
-        eq(userPermissions.processId, processId)
+        eq(userPermissions.processId, processId),
+        sql`${userPermissions.nodeId} IS NULL`  // Only direct process permissions
       ))
       .limit(1);
     
-    if (!permission) return false;
-    if (!requiredRole) return true;
-    if (requiredRole === 'operator') return true; // owner, admin, and operator all satisfy
-    // 'owner' and 'admin' both satisfy admin requirement
-    return permission.role === 'admin' || permission.role === 'owner';
+    if (permission) {
+      if (!requiredRole) return true;
+      if (requiredRole === 'operator') return true; // owner, admin, and operator all satisfy
+      if (permission.role === 'admin' || permission.role === 'owner') return true;
+    }
+    
+    // Also check if user has node-level permission for any node in this process
+    // For admin requirement: only admin/owner node permissions count
+    // For operator or no requirement: any node permission grants access
+    if (requiredRole === 'admin') {
+      const [adminNodePerm] = await db.select({ role: userPermissions.role })
+        .from(userPermissions)
+        .innerJoin(nodes, eq(userPermissions.nodeId, nodes.id))
+        .where(and(
+          eq(userPermissions.userId, userId),
+          eq(nodes.processId, processId),
+          sql`${userPermissions.nodeId} IS NOT NULL`,
+          sql`${userPermissions.role} IN ('owner', 'admin')`  // Only admin/owner roles
+        ))
+        .limit(1);
+      
+      return !!adminNodePerm;
+    }
+    
+    // For operator or no role requirement, any node permission grants access
+    const [anyNodePerm] = await db.select({ role: userPermissions.role })
+      .from(userPermissions)
+      .innerJoin(nodes, eq(userPermissions.nodeId, nodes.id))
+      .where(and(
+        eq(userPermissions.userId, userId),
+        eq(nodes.processId, processId),
+        sql`${userPermissions.nodeId} IS NOT NULL`
+      ))
+      .limit(1);
+    
+    return !!anyNodePerm;
   }
 
   async hasNodeAccess(userId: string, nodeId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean> {
@@ -623,8 +656,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserAdminProcesses(userId: string): Promise<Process[]> {
-    console.log("[getUserAdminProcesses] userId:", userId);
-    
     // Get processes where user has direct admin/owner access
     const directPerms = await db.select({ processId: userPermissions.processId })
       .from(userPermissions)
@@ -633,7 +664,6 @@ export class DatabaseStorage implements IStorage {
         sql`${userPermissions.role} IN ('owner', 'admin')`,
         sql`${userPermissions.processId} IS NOT NULL`
       ));
-    console.log("[getUserAdminProcesses] directPerms:", JSON.stringify(directPerms));
     
     // Also get processes where user has admin/owner access to any node within
     const nodePerms = await db.select({ nodeId: userPermissions.nodeId })
@@ -643,10 +673,8 @@ export class DatabaseStorage implements IStorage {
         sql`${userPermissions.role} IN ('owner', 'admin')`,
         sql`${userPermissions.nodeId} IS NOT NULL`
       ));
-    console.log("[getUserAdminProcesses] nodePerms:", JSON.stringify(nodePerms));
     
     const nodeIds = nodePerms.map(p => p.nodeId).filter((id): id is string => id !== null);
-    console.log("[getUserAdminProcesses] nodeIds:", nodeIds);
     
     // Get process IDs from those nodes
     let nodeProcessIds: string[] = [];
@@ -655,14 +683,12 @@ export class DatabaseStorage implements IStorage {
         .from(nodes)
         .where(inArray(nodes.id, nodeIds));
       nodeProcessIds = nodeProcesses.map(n => n.processId);
-      console.log("[getUserAdminProcesses] nodeProcessIds:", nodeProcessIds);
     }
     
     // Combine and deduplicate process IDs
     const directProcessIds = directPerms.map(p => p.processId).filter((id): id is string => id !== null);
     const combinedIds = [...directProcessIds, ...nodeProcessIds];
     const allProcessIds = combinedIds.filter((id, index) => combinedIds.indexOf(id) === index);
-    console.log("[getUserAdminProcesses] allProcessIds:", allProcessIds);
     
     if (allProcessIds.length === 0) return [];
     
