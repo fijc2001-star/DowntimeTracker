@@ -211,12 +211,12 @@ function NodeOperationalPanel({
 function ProcessTreeItem({ 
   process, 
   nodes,
-  selectedNode,
+  selectedNodeId,
   onSelectNode,
 }: { 
   process: { id: string; name: string; description: string | null; userRole: 'owner' | 'admin' | 'operator' };
   nodes: NodeWithStatus[];
-  selectedNode: NodeWithStatus | null;
+  selectedNodeId: string | null;
   onSelectNode: (node: NodeWithStatus | null) => void;
 }) {
   const [isOpen, setIsOpen] = React.useState(false);
@@ -258,7 +258,7 @@ function ProcessTreeItem({
             ) : (
               <div className="space-y-2 pl-8">
                 {processNodes.map(node => {
-                  const isSelected = selectedNode?.id === node.id;
+                  const isSelected = selectedNodeId === node.id;
                   const isDown = node.status === 'down';
                   
                   return (
@@ -300,11 +300,16 @@ function ProcessTreeItem({
 export default function ProcessesPage() {
   const { data: processes = [], isLoading: processesLoading } = useProcesses();
   const { data: nodes = [], isLoading: nodesLoading } = useNodes();
-  const [selectedNode, setSelectedNode] = React.useState<NodeWithStatus | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = React.useState<string | null>(null);
 
   const isLoading = processesLoading || nodesLoading;
 
   const activeProcesses = processes.filter(p => p.isActive);
+  
+  // Get fresh node data from query (updates automatically after mutations)
+  const selectedNode = selectedNodeId 
+    ? (nodes as NodeWithStatus[]).find(n => n.id === selectedNodeId) || null 
+    : null;
 
   if (isLoading) {
     return (
@@ -338,8 +343,8 @@ export default function ProcessesPage() {
                 key={process.id}
                 process={process as any}
                 nodes={nodes as NodeWithStatus[]}
-                selectedNode={selectedNode}
-                onSelectNode={setSelectedNode}
+                selectedNodeId={selectedNodeId}
+                onSelectNode={(node) => setSelectedNodeId(node ? node.id : null)}
               />
             ))
           )}
@@ -351,7 +356,7 @@ export default function ProcessesPage() {
             <NodeOperationalPanel
               node={selectedNode}
               processId={selectedNode.processId}
-              onClose={() => setSelectedNode(null)}
+              onClose={() => setSelectedNodeId(null)}
             />
           ) : (
             <Card className="border-dashed">
