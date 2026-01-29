@@ -353,35 +353,39 @@ function MyAssignmentsSection() {
                 </Badge>
               </TableCell>
               <TableCell className="text-right">
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="text-destructive hover:text-destructive"
-                      data-testid={`button-leave-${assignment.id}`}
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" /> Leave
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Leave Assignment?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        You will lose access to {assignment.nodeName || assignment.processName}. You'll need an admin to re-assign you if needed.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={() => handleLeaveAssignment(assignment.id)}
-                        className="bg-destructive hover:bg-destructive/90"
+                {assignment.role === 'admin' ? (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-destructive hover:text-destructive"
+                        data-testid={`button-leave-${assignment.id}`}
                       >
-                        Leave
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
+                        <Trash2 className="h-4 w-4 mr-1" /> Leave
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Leave Assignment?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          You will lose access to {assignment.nodeName || assignment.processName}. You'll need an admin to re-assign you if needed.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction 
+                          onClick={() => handleLeaveAssignment(assignment.id)}
+                          className="bg-destructive hover:bg-destructive/90"
+                        >
+                          Leave
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                ) : (
+                  <span className="text-xs text-muted-foreground">Contact admin to leave</span>
+                )}
               </TableCell>
             </TableRow>
           ))}

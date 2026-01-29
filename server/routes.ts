@@ -728,20 +728,21 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Cannot revoke owner access. Delete the process instead." });
       }
       
-      // Allow self-removal (user can always remove their own permission)
+      // Allow self-removal only for admin/owner roles (operators cannot de-assign themselves)
       const isSelfRemoval = targetPerm.userId === userId;
+      const canSelfRemove = isSelfRemoval && (targetPerm.role === 'admin' || targetPerm.role === 'owner');
       
-      if (!isSelfRemoval) {
+      if (!canSelfRemove) {
         // Check if user has admin rights to modify this permission
         if (targetPerm.processId) {
           const hasAdmin = await storage.hasProcessAccess(userId, targetPerm.processId, 'admin');
           if (!hasAdmin) {
-            return res.status(403).json({ message: "Admin access required" });
+            return res.status(403).json({ message: "Admin access required to remove this permission" });
           }
         } else if (targetPerm.nodeId) {
           const hasAdmin = await storage.hasNodeAccess(userId, targetPerm.nodeId, 'admin');
           if (!hasAdmin) {
-            return res.status(403).json({ message: "Admin access required" });
+            return res.status(403).json({ message: "Admin access required to remove this permission" });
           }
         }
       }

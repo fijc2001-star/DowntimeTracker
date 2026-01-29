@@ -623,7 +623,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserAdminProcesses(userId: string): Promise<Process[]> {
-    const perms = await db.select({ processId: userPermissions.processId })
+    // Get processes where user has direct admin/owner access
+    const directPerms = await db.select({ processId: userPermissions.processId })
       .from(userPermissions)
       .where(and(
         eq(userPermissions.userId, userId),
@@ -631,12 +632,35 @@ export class DatabaseStorage implements IStorage {
         sql`${userPermissions.processId} IS NOT NULL`
       ));
     
-    if (perms.length === 0) return [];
+    // Also get processes where user has admin/owner access to any node within
+    const nodePerms = await db.select({ nodeId: userPermissions.nodeId })
+      .from(userPermissions)
+      .where(and(
+        eq(userPermissions.userId, userId),
+        sql`${userPermissions.role} IN ('owner', 'admin')`,
+        sql`${userPermissions.nodeId} IS NOT NULL`
+      ));
     
-    const processIds = perms.map(p => p.processId).filter((id): id is string => id !== null);
+    const nodeIds = nodePerms.map(p => p.nodeId).filter((id): id is string => id !== null);
+    
+    // Get process IDs from those nodes
+    let nodeProcessIds: string[] = [];
+    if (nodeIds.length > 0) {
+      const nodeProcesses = await db.select({ processId: nodes.processId })
+        .from(nodes)
+        .where(inArray(nodes.id, nodeIds));
+      nodeProcessIds = nodeProcesses.map(n => n.processId);
+    }
+    
+    // Combine and deduplicate process IDs
+    const directProcessIds = directPerms.map(p => p.processId).filter((id): id is string => id !== null);
+    const allProcessIds = [...new Set([...directProcessIds, ...nodeProcessIds])];
+    
+    if (allProcessIds.length === 0) return [];
+    
     return await db.select().from(processes)
       .where(and(
-        inArray(processes.id, processIds),
+        inArray(processes.id, allProcessIds),
         eq(processes.isActive, true)
       ));
   }
