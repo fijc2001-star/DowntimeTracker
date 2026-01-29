@@ -506,7 +506,9 @@ export async function registerRoutes(
   app.get("/api/analytics/admin-processes", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
+      console.log("[admin-processes] Fetching for userId:", userId);
       const adminProcesses = await storage.getUserAdminProcesses(userId);
+      console.log("[admin-processes] Result count:", adminProcesses.length, "processes:", adminProcesses.map(p => p.name));
       res.json(adminProcesses);
     } catch (error) {
       console.error("Error fetching admin processes:", error);

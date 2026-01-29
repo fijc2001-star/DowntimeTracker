@@ -623,6 +623,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserAdminProcesses(userId: string): Promise<Process[]> {
+    console.log("[getUserAdminProcesses] userId:", userId);
+    
     // Get processes where user has direct admin/owner access
     const directPerms = await db.select({ processId: userPermissions.processId })
       .from(userPermissions)
@@ -631,6 +633,7 @@ export class DatabaseStorage implements IStorage {
         sql`${userPermissions.role} IN ('owner', 'admin')`,
         sql`${userPermissions.processId} IS NOT NULL`
       ));
+    console.log("[getUserAdminProcesses] directPerms:", JSON.stringify(directPerms));
     
     // Also get processes where user has admin/owner access to any node within
     const nodePerms = await db.select({ nodeId: userPermissions.nodeId })
@@ -640,8 +643,10 @@ export class DatabaseStorage implements IStorage {
         sql`${userPermissions.role} IN ('owner', 'admin')`,
         sql`${userPermissions.nodeId} IS NOT NULL`
       ));
+    console.log("[getUserAdminProcesses] nodePerms:", JSON.stringify(nodePerms));
     
     const nodeIds = nodePerms.map(p => p.nodeId).filter((id): id is string => id !== null);
+    console.log("[getUserAdminProcesses] nodeIds:", nodeIds);
     
     // Get process IDs from those nodes
     let nodeProcessIds: string[] = [];
@@ -650,12 +655,14 @@ export class DatabaseStorage implements IStorage {
         .from(nodes)
         .where(inArray(nodes.id, nodeIds));
       nodeProcessIds = nodeProcesses.map(n => n.processId);
+      console.log("[getUserAdminProcesses] nodeProcessIds:", nodeProcessIds);
     }
     
     // Combine and deduplicate process IDs
     const directProcessIds = directPerms.map(p => p.processId).filter((id): id is string => id !== null);
     const combinedIds = [...directProcessIds, ...nodeProcessIds];
     const allProcessIds = combinedIds.filter((id, index) => combinedIds.indexOf(id) === index);
+    console.log("[getUserAdminProcesses] allProcessIds:", allProcessIds);
     
     if (allProcessIds.length === 0) return [];
     
