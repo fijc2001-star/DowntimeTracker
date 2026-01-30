@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntimeStatsByNode } from '@/lib/queries';
+import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntimeStatsByNode, useProcesses } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
@@ -30,6 +30,7 @@ export default function Dashboard() {
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
   const { data: adminNodes = [], isLoading: nodesLoading } = useAdminNodes();
+  const { data: allProcesses = [] } = useProcesses(); // For getting process names
 
   const uniqueAdminNodes = useMemo(() => {
     const seen = new Set<string>();
@@ -39,6 +40,21 @@ export default function Dashboard() {
       return true;
     });
   }, [adminNodes]);
+
+  // Derive unique processes from admin nodes (for node entity type selection)
+  const processesFromAdminNodes = useMemo(() => {
+    const processMap = new Map<string, { id: string; name: string }>();
+    uniqueAdminNodes.forEach((node) => {
+      if (!processMap.has(node.processId)) {
+        // Get process name from allProcesses (which includes all accessible processes)
+        const matchingProcess = allProcesses.find(p => p.id === node.processId);
+        if (matchingProcess) {
+          processMap.set(node.processId, { id: node.processId, name: matchingProcess.name });
+        }
+      }
+    });
+    return Array.from(processMap.values());
+  }, [uniqueAdminNodes, allProcesses]);
 
   const filteredNodes = useMemo(() => {
     if (!selectedProcessId) return [];
@@ -203,14 +219,14 @@ export default function Dashboard() {
                   <>
                     <div className="space-y-2">
                       <Label htmlFor="process-filter">Select Process</Label>
-                      {processesLoading ? (
+                      {nodesLoading ? (
                         <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           <span className="text-muted-foreground text-sm">Loading...</span>
                         </div>
-                      ) : adminProcesses.length === 0 ? (
+                      ) : processesFromAdminNodes.length === 0 ? (
                         <div className="h-10 px-3 border rounded-md bg-muted/50 flex items-center">
-                          <span className="text-muted-foreground text-sm">No processes with admin access</span>
+                          <span className="text-muted-foreground text-sm">No nodes with admin access</span>
                         </div>
                       ) : (
                         <Select
@@ -221,7 +237,7 @@ export default function Dashboard() {
                             <SelectValue placeholder="Select a process first" />
                           </SelectTrigger>
                           <SelectContent>
-                            {adminProcesses.map((process) => (
+                            {processesFromAdminNodes.map((process) => (
                               <SelectItem
                                 key={process.id}
                                 value={process.id}
