@@ -204,6 +204,7 @@ export default function Dashboard() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
+                    onKeyDown={(e) => e.preventDefault()}
                     data-testid="input-start-date"
                     className="w-full"
                   />
@@ -218,6 +219,7 @@ export default function Dashboard() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
+                    onKeyDown={(e) => e.preventDefault()}
                     data-testid="input-end-date"
                     className="w-full"
                   />
