@@ -204,10 +204,8 @@ export default function Dashboard() {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    onKeyDown={(e) => e.preventDefault()}
-                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     data-testid="input-start-date"
-                    className="w-full cursor-pointer"
+                    className="w-full"
                   />
                 </div>
                 <div className="space-y-2">
@@ -220,10 +218,8 @@ export default function Dashboard() {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    onKeyDown={(e) => e.preventDefault()}
-                    onClick={(e) => (e.target as HTMLInputElement).showPicker?.()}
                     data-testid="input-end-date"
-                    className="w-full cursor-pointer"
+                    className="w-full"
                   />
                 </div>
               </div>
