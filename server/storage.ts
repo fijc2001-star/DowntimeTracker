@@ -64,8 +64,8 @@ export interface IStorage {
   getAllUsers(): Promise<{ id: string; email: string; firstName?: string | null; lastName?: string | null }[]>;
   
   // Analytics
-  getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string): Promise<{ reasonLabel: string; totalDuration: number }[]>;
-  getDowntimeStatsByNode(processId: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]>;
+  getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string): Promise<{ reasonLabel: string; totalDuration: number }[]>;
+  getDowntimeStatsByNode(processId: string, startDate?: string, endDate?: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]>;
   getUserAdminProcesses(userId: string): Promise<Process[]>;
   getUserAdminNodes(userId: string): Promise<Node[]>;
 }
@@ -567,8 +567,10 @@ export class DatabaseStorage implements IStorage {
     }).from(users);
   }
 
-  async getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string): Promise<{ reasonLabel: string; totalDuration: number }[]> {
+  async getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string): Promise<{ reasonLabel: string; totalDuration: number }[]> {
     const now = new Date();
+    const filterStart = startDate ? new Date(startDate) : null;
+    const filterEnd = endDate ? new Date(endDate + 'T23:59:59.999Z') : null;
     
     // Build the query based on entity type
     const whereCondition = entityType === 'process'
@@ -593,9 +595,19 @@ export class DatabaseStorage implements IStorage {
     const durationByReason: Record<string, number> = {};
     
     for (const event of events) {
-      const end = event.endTime ? new Date(event.endTime) : now;
-      const start = new Date(event.startTime);
-      const durationMs = end.getTime() - start.getTime();
+      const eventEnd = event.endTime ? new Date(event.endTime) : now;
+      const eventStart = new Date(event.startTime);
+      
+      // Apply date range filter - calculate overlap with filter window
+      const effectiveStart = filterStart && eventStart < filterStart ? filterStart : eventStart;
+      const effectiveEnd = filterEnd && eventEnd > filterEnd ? filterEnd : eventEnd;
+      
+      // Skip events that don't overlap with the filter window
+      if (filterStart && eventEnd < filterStart) continue;
+      if (filterEnd && eventStart > filterEnd) continue;
+      
+      const durationMs = effectiveEnd.getTime() - effectiveStart.getTime();
+      if (durationMs <= 0) continue;
       
       const reasonLabel = event.reasonId ? (reasonMap.get(event.reasonId) || 'Unknown') : 'No Reason';
       durationByReason[reasonLabel] = (durationByReason[reasonLabel] || 0) + durationMs;
@@ -607,8 +619,10 @@ export class DatabaseStorage implements IStorage {
       .sort((a, b) => b.totalDuration - a.totalDuration);
   }
 
-  async getDowntimeStatsByNode(processId: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]> {
+  async getDowntimeStatsByNode(processId: string, startDate?: string, endDate?: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]> {
     const now = new Date();
+    const filterStart = startDate ? new Date(startDate) : null;
+    const filterEnd = endDate ? new Date(endDate + 'T23:59:59.999Z') : null;
     
     // Get all downtime events for this process
     const events = await db
@@ -628,9 +642,19 @@ export class DatabaseStorage implements IStorage {
     const durationByNode: Record<string, number> = {};
     
     for (const event of events) {
-      const end = event.endTime ? new Date(event.endTime) : now;
-      const start = new Date(event.startTime);
-      const durationMs = end.getTime() - start.getTime();
+      const eventEnd = event.endTime ? new Date(event.endTime) : now;
+      const eventStart = new Date(event.startTime);
+      
+      // Apply date range filter - calculate overlap with filter window
+      const effectiveStart = filterStart && eventStart < filterStart ? filterStart : eventStart;
+      const effectiveEnd = filterEnd && eventEnd > filterEnd ? filterEnd : eventEnd;
+      
+      // Skip events that don't overlap with the filter window
+      if (filterStart && eventEnd < filterStart) continue;
+      if (filterEnd && eventStart > filterEnd) continue;
+      
+      const durationMs = effectiveEnd.getTime() - effectiveStart.getTime();
+      if (durationMs <= 0) continue;
       
       durationByNode[event.nodeId] = (durationByNode[event.nodeId] || 0) + durationMs;
     }

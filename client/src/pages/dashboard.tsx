@@ -3,9 +3,10 @@ import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntime
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { BarChart3, Loader2, Filter, AlertTriangle } from 'lucide-react';
+import { BarChart3, Loader2, Filter, AlertTriangle, Calendar } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Input } from '@/components/ui/input';
 
 type EntityType = 'process' | 'node';
 type BreakdownType = 'reason' | 'node';
@@ -27,6 +28,8 @@ export default function Dashboard() {
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [breakdownType, setBreakdownType] = useState<BreakdownType>('reason');
+  const [startDate, setStartDate] = useState<string>('');
+  const [endDate, setEndDate] = useState<string>('');
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
   const { data: adminNodes = [], isLoading: nodesLoading } = useAdminNodes();
@@ -65,11 +68,15 @@ export default function Dashboard() {
 
   const { data: reasonStats = [], isLoading: reasonStatsLoading } = useDowntimeStatsByReason(
     selectedEntityId ? entityType : null,
-    selectedEntityId
+    selectedEntityId,
+    startDate || undefined,
+    endDate || undefined
   );
 
   const { data: nodeStats = [], isLoading: nodeStatsLoading } = useDowntimeStatsByNode(
-    entityType === 'process' && breakdownType === 'node' ? selectedProcessId : null
+    entityType === 'process' && breakdownType === 'node' ? selectedProcessId : null,
+    startDate || undefined,
+    endDate || undefined
   );
 
   const statsLoading = breakdownType === 'reason' ? reasonStatsLoading : nodeStatsLoading;
@@ -161,9 +168,39 @@ export default function Dashboard() {
                 <Filter className="h-5 w-5 text-primary" />
                 <CardTitle className="text-lg">Filters</CardTitle>
               </div>
-              <CardDescription>Select an entity to view its downtime breakdown</CardDescription>
+              <CardDescription>Select an entity and optional date range to view its downtime breakdown</CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
+                <div className="space-y-2">
+                  <Label htmlFor="start-date" className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    Start Date
+                  </Label>
+                  <Input
+                    id="start-date"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    data-testid="input-start-date"
+                    className="w-full"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="end-date" className="flex items-center gap-1">
+                    <Calendar className="h-3.5 w-3.5" />
+                    End Date
+                  </Label>
+                  <Input
+                    id="end-date"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    data-testid="input-end-date"
+                    className="w-full"
+                  />
+                </div>
+              </div>
               <div className={`grid grid-cols-1 gap-4 ${entityType === 'node' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
                 <div className="space-y-2">
                   <Label htmlFor="entity-type">Entity Type</Label>

@@ -197,10 +197,18 @@ export async function getAdminNodes() {
   return fetchAPI<Node[]>('/api/analytics/admin-nodes');
 }
 
-export async function getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string) {
-  return fetchAPI<{ reasonLabel: string; totalDuration: number }[]>(`/api/analytics/downtime-stats/${entityType}/${entityId}`);
+export async function getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string) {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const queryString = params.toString() ? `?${params}` : '';
+  return fetchAPI<{ reasonLabel: string; totalDuration: number }[]>(`/api/analytics/downtime-stats/${entityType}/${entityId}${queryString}`);
 }
 
-export async function getDowntimeStatsByNode(processId: string) {
-  return fetchAPI<{ nodeId: string; nodeName: string; totalDuration: number }[]>(`/api/analytics/downtime-stats-by-node/${processId}`);
+export async function getDowntimeStatsByNode(processId: string, startDate?: string, endDate?: string) {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const queryString = params.toString() ? `?${params}` : '';
+  return fetchAPI<{ nodeId: string; nodeName: string; totalDuration: number }[]>(`/api/analytics/downtime-stats-by-node/${processId}${queryString}`);
 }

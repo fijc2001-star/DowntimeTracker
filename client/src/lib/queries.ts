@@ -308,18 +308,18 @@ export function useAdminNodes() {
   });
 }
 
-export function useDowntimeStatsByReason(entityType: 'process' | 'node' | null, entityId: string | null) {
+export function useDowntimeStatsByReason(entityType: 'process' | 'node' | null, entityId: string | null, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['analytics', 'downtime-stats', entityType, entityId],
-    queryFn: () => api.getDowntimeStatsByReason(entityType!, entityId!),
+    queryKey: ['analytics', 'downtime-stats', entityType, entityId, startDate, endDate],
+    queryFn: () => api.getDowntimeStatsByReason(entityType!, entityId!, startDate, endDate),
     enabled: !!entityType && !!entityId,
   });
 }
 
-export function useDowntimeStatsByNode(processId: string | null) {
+export function useDowntimeStatsByNode(processId: string | null, startDate?: string, endDate?: string) {
   return useQuery({
-    queryKey: ['analytics', 'downtime-stats-by-node', processId],
-    queryFn: () => api.getDowntimeStatsByNode(processId!),
+    queryKey: ['analytics', 'downtime-stats-by-node', processId, startDate, endDate],
+    queryFn: () => api.getDowntimeStatsByNode(processId!, startDate, endDate),
     enabled: !!processId,
   });
 }

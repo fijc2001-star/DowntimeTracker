@@ -531,6 +531,7 @@ export async function registerRoutes(
     try {
       const userId = getUserId(req);
       const { entityType, entityId } = req.params;
+      const { startDate, endDate } = req.query;
       
       if (entityType !== 'process' && entityType !== 'node') {
         return res.status(400).json({ message: "Invalid entity type" });
@@ -549,7 +550,12 @@ export async function registerRoutes(
         }
       }
       
-      const stats = await storage.getDowntimeStatsByReason(entityType, entityId);
+      const stats = await storage.getDowntimeStatsByReason(
+        entityType, 
+        entityId, 
+        startDate as string | undefined, 
+        endDate as string | undefined
+      );
       res.json(stats);
     } catch (error) {
       console.error("Error fetching downtime stats:", error);
@@ -562,6 +568,7 @@ export async function registerRoutes(
     try {
       const userId = getUserId(req);
       const { processId } = req.params;
+      const { startDate, endDate } = req.query;
       
       // Check admin/owner access
       const hasAccess = await storage.hasProcessAccess(userId, processId, 'admin');
@@ -569,7 +576,11 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied - admin/owner required" });
       }
       
-      const stats = await storage.getDowntimeStatsByNode(processId);
+      const stats = await storage.getDowntimeStatsByNode(
+        processId, 
+        startDate as string | undefined, 
+        endDate as string | undefined
+      );
       res.json(stats);
     } catch (error) {
       console.error("Error fetching downtime stats by node:", error);
