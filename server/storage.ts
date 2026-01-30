@@ -104,10 +104,32 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProcess(id: string): Promise<boolean> {
-    // Soft delete by setting isActive to false
+    // Hard delete - remove all related data first, then delete the process
+    // Get all node IDs for this process first
+    const processNodes = await db.select({ id: nodes.id }).from(nodes).where(eq(nodes.processId, id));
+    const nodeIds = processNodes.map(n => n.id);
+    
+    // 1. Delete all downtime events for this process
+    await db.delete(downtimeEvents).where(eq(downtimeEvents.processId, id));
+    
+    // 2. Delete all user permissions for this process (both process-level and node-level)
+    await db.delete(userPermissions).where(eq(userPermissions.processId, id));
+    // Also delete node-level permissions for nodes in this process
+    if (nodeIds.length > 0) {
+      for (const nodeId of nodeIds) {
+        await db.delete(userPermissions).where(eq(userPermissions.nodeId, nodeId));
+      }
+    }
+    
+    // 3. Delete all downtime reasons for this process
+    await db.delete(downtimeReasons).where(eq(downtimeReasons.processId, id));
+    
+    // 4. Delete all nodes for this process
+    await db.delete(nodes).where(eq(nodes.processId, id));
+    
+    // 5. Finally delete the process itself
     const [process] = await db
-      .update(processes)
-      .set({ isActive: false, updatedAt: new Date() })
+      .delete(processes)
       .where(eq(processes.id, id))
       .returning();
     return !!process;
@@ -156,10 +178,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteNode(id: string): Promise<boolean> {
-    // Soft delete by setting isActive to false
+    // Hard delete - remove all related data first, then delete the node
+    // 1. Delete all downtime events for this node
+    await db.delete(downtimeEvents).where(eq(downtimeEvents.nodeId, id));
+    
+    // 2. Delete all user permissions for this node
+    await db.delete(userPermissions).where(eq(userPermissions.nodeId, id));
+    
+    // 3. Finally delete the node itself
     const [node] = await db
-      .update(nodes)
-      .set({ isActive: false, updatedAt: new Date() })
+      .delete(nodes)
       .where(eq(nodes.id, id))
       .returning();
     return !!node;
@@ -196,6 +224,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteDowntimeReason(id: string): Promise<boolean> {
+    // Set reasonId to null on any events that reference this reason
+    await db
+      .update(downtimeEvents)
+      .set({ reasonId: null })
+      .where(eq(downtimeEvents.reasonId, id));
+    
+    // Then delete the reason
     const [reason] = await db
       .delete(downtimeReasons)
       .where(eq(downtimeReasons.id, id))
