@@ -3,11 +3,13 @@ import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntime
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { BarChart3, Loader2, Filter, AlertTriangle, Calendar, RotateCcw } from 'lucide-react';
+import { BarChart3, Loader2, Filter, AlertTriangle, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
 
 type EntityType = 'process' | 'node';
 type BreakdownType = 'reason' | 'node';
@@ -29,16 +31,21 @@ export default function Dashboard() {
   const [selectedProcessId, setSelectedProcessId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [breakdownType, setBreakdownType] = useState<BreakdownType>('reason');
-  const [startDate, setStartDate] = useState<string>('');
-  const [endDate, setEndDate] = useState<string>('');
+  const [startDate, setStartDate] = useState<Date | undefined>(undefined);
+  const [endDate, setEndDate] = useState<Date | undefined>(undefined);
 
   const resetFilters = () => {
     setEntityType('process');
     setSelectedProcessId(null);
     setSelectedNodeId(null);
     setBreakdownType('reason');
-    setStartDate('');
-    setEndDate('');
+    setStartDate(undefined);
+    setEndDate(undefined);
+  };
+
+  const formatDateForApi = (date: Date | undefined): string | undefined => {
+    if (!date) return undefined;
+    return format(date, 'yyyy-MM-dd');
   };
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
@@ -79,14 +86,14 @@ export default function Dashboard() {
   const { data: reasonStats = [], isLoading: reasonStatsLoading } = useDowntimeStatsByReason(
     selectedEntityId ? entityType : null,
     selectedEntityId,
-    startDate || undefined,
-    endDate || undefined
+    formatDateForApi(startDate),
+    formatDateForApi(endDate)
   );
 
   const { data: nodeStats = [], isLoading: nodeStatsLoading } = useDowntimeStatsByNode(
     entityType === 'process' && breakdownType === 'node' ? selectedProcessId : null,
-    startDate || undefined,
-    endDate || undefined
+    formatDateForApi(startDate),
+    formatDateForApi(endDate)
   );
 
   const statsLoading = breakdownType === 'reason' ? reasonStatsLoading : nodeStatsLoading;
@@ -195,32 +202,56 @@ export default function Dashboard() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 <div className="space-y-2">
-                  <Label htmlFor="start-date" className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
+                  <Label className="flex items-center gap-1">
+                    <CalendarIcon className="h-3.5 w-3.5" />
                     Start Date
                   </Label>
-                  <Input
-                    id="start-date"
-                    type="date"
-                    value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
-                    data-testid="input-start-date"
-                    className="w-full"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        data-testid="input-start-date"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {startDate ? format(startDate, 'PPP') : <span className="text-muted-foreground">Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={startDate}
+                        onSelect={setStartDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="end-date" className="flex items-center gap-1">
-                    <Calendar className="h-3.5 w-3.5" />
+                  <Label className="flex items-center gap-1">
+                    <CalendarIcon className="h-3.5 w-3.5" />
                     End Date
                   </Label>
-                  <Input
-                    id="end-date"
-                    type="date"
-                    value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
-                    data-testid="input-end-date"
-                    className="w-full"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="w-full justify-start text-left font-normal"
+                        data-testid="input-end-date"
+                      >
+                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        {endDate ? format(endDate, 'PPP') : <span className="text-muted-foreground">Pick a date</span>}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar
+                        mode="single"
+                        selected={endDate}
+                        onSelect={setEndDate}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
               </div>
               <div className={`grid grid-cols-1 gap-4 ${entityType === 'node' ? 'md:grid-cols-3' : 'md:grid-cols-2'}`}>
