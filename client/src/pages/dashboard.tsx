@@ -3,10 +3,11 @@ import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntime
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { BarChart3, Loader2, Filter, AlertTriangle, Calendar } from 'lucide-react';
+import { BarChart3, Loader2, Filter, AlertTriangle, Calendar, RotateCcw } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 
 type EntityType = 'process' | 'node';
 type BreakdownType = 'reason' | 'node';
@@ -30,6 +31,15 @@ export default function Dashboard() {
   const [breakdownType, setBreakdownType] = useState<BreakdownType>('reason');
   const [startDate, setStartDate] = useState<string>('');
   const [endDate, setEndDate] = useState<string>('');
+
+  const resetFilters = () => {
+    setEntityType('process');
+    setSelectedProcessId(null);
+    setSelectedNodeId(null);
+    setBreakdownType('reason');
+    setStartDate('');
+    setEndDate('');
+  };
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
   const { data: adminNodes = [], isLoading: nodesLoading } = useAdminNodes();
@@ -164,9 +174,21 @@ export default function Dashboard() {
         <>
           <Card>
             <CardHeader className="pb-4">
-              <div className="flex items-center gap-2">
-                <Filter className="h-5 w-5 text-primary" />
-                <CardTitle className="text-lg">Filters</CardTitle>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Filter className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Filters</CardTitle>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetFilters}
+                  data-testid="button-reset-filters"
+                  className="flex items-center gap-1.5"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Reset
+                </Button>
               </div>
               <CardDescription>Select an entity and optional date range to view its downtime breakdown</CardDescription>
             </CardHeader>
