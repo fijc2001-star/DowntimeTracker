@@ -202,26 +202,11 @@ function AuthorizationSection() {
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>User</Label>
-                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-                  <SelectTrigger data-testid="select-user">
-                    <SelectValue placeholder="Select a user" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {assignableUsers.map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.email} {user.firstName && `(${user.firstName} ${user.lastName || ''})`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2">
                 <Label>Assignment Type</Label>
                 <Select value={assignmentType} onValueChange={(v) => {
                   setAssignmentType(v as 'process' | 'node');
                   setSelectedNodeId('');
+                  setSelectedUserId('');
                 }}>
                   <SelectTrigger data-testid="select-assignment-type">
                     <SelectValue />
@@ -238,6 +223,7 @@ function AuthorizationSection() {
                 <Select value={selectedProcessId} onValueChange={(v) => {
                   setSelectedProcessId(v);
                   setSelectedNodeId('');
+                  setSelectedUserId('');
                 }}>
                   <SelectTrigger data-testid="select-process">
                     <SelectValue placeholder="Select a process" />
@@ -253,7 +239,10 @@ function AuthorizationSection() {
               {assignmentType === 'node' && selectedProcessId && (
                 <div className="space-y-2">
                   <Label>Node</Label>
-                  <Select value={selectedNodeId} onValueChange={setSelectedNodeId}>
+                  <Select value={selectedNodeId} onValueChange={(v) => {
+                    setSelectedNodeId(v);
+                    setSelectedUserId('');
+                  }}>
                     <SelectTrigger data-testid="select-node">
                       <SelectValue placeholder="Select a node" />
                     </SelectTrigger>
@@ -275,6 +264,22 @@ function AuthorizationSection() {
                   <SelectContent>
                     <SelectItem value="admin">Admin - Full control</SelectItem>
                     <SelectItem value="operator">Operator - Start/Stop downtime</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>User</Label>
+                <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                  <SelectTrigger data-testid="select-user">
+                    <SelectValue placeholder="Select a user" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {assignableUsers.map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.email} {user.firstName && `(${user.firstName} ${user.lastName || ''})`}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
