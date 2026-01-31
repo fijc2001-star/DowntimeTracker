@@ -89,20 +89,31 @@ function AuthorizationSection() {
   // Get permissions for selected process to filter out owners
   const { data: selectedProcessPermissions = [] } = useProcessPermissions(selectedProcessId);
   
-  // Filter out current user and process owners from assignable users
+  // Filter out current user and owners from assignable users
   const assignableUsers = React.useMemo(() => {
-    // Get owner user IDs for the selected process
-    const ownerUserIds = new Set(
+    const ownerUserIds = new Set<string>();
+    
+    if (assignmentType === 'process' && selectedProcessId) {
+      // For process assignment, filter out process owners
       selectedProcessPermissions
-        .filter((p: any) => p.role === 'owner')
-        .map((p: any) => p.userId)
-    );
+        .filter((p: any) => p.role === 'owner' && !p.nodeId)
+        .forEach((p: any) => ownerUserIds.add(p.userId));
+    } else if (assignmentType === 'node' && selectedNodeId) {
+      // For node assignment, filter out node owners
+      selectedProcessPermissions
+        .filter((p: any) => p.role === 'owner' && p.nodeId === selectedNodeId)
+        .forEach((p: any) => ownerUserIds.add(p.userId));
+      // Also filter out process owners (they have full access to all nodes)
+      selectedProcessPermissions
+        .filter((p: any) => p.role === 'owner' && !p.nodeId)
+        .forEach((p: any) => ownerUserIds.add(p.userId));
+    }
     
     // Filter out current user and owners
     return allUsers.filter(u => 
       u.id !== currentUser?.id && !ownerUserIds.has(u.id)
     );
-  }, [allUsers, currentUser?.id, selectedProcessPermissions]);
+  }, [allUsers, currentUser?.id, selectedProcessPermissions, assignmentType, selectedProcessId, selectedNodeId]);
   
   const handleAssignPermission = async () => {
     if (!selectedUserId || !selectedRole) {
