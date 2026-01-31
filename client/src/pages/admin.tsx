@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason } from '@/lib/queries';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAdminProcesses, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason } from '@/lib/queries';
 import type { DowntimeReason } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 
@@ -487,7 +487,7 @@ function ProcessPermissionsCard({
 }
 
 function DowntimeReasonsSection() {
-  const { data: ownedProcesses = [] } = useMyOwnedProcesses();
+  const { data: adminProcesses = [] } = useAdminProcesses();
   const [selectedProcessId, setSelectedProcessId] = React.useState('');
   const [addDialogOpen, setAddDialogOpen] = React.useState(false);
   const [editDialogOpen, setEditDialogOpen] = React.useState(false);
@@ -502,10 +502,10 @@ function DowntimeReasonsSection() {
   const { toast } = useToast();
   
   React.useEffect(() => {
-    if (ownedProcesses.length > 0 && !selectedProcessId) {
-      setSelectedProcessId(ownedProcesses[0].id);
+    if (adminProcesses.length > 0 && !selectedProcessId) {
+      setSelectedProcessId(adminProcesses[0].id);
     }
-  }, [ownedProcesses, selectedProcessId]);
+  }, [adminProcesses, selectedProcessId]);
   
   const handleAddReason = () => {
     if (!reasonLabel.trim()) {
@@ -581,11 +581,11 @@ function DowntimeReasonsSection() {
     );
   };
   
-  if (ownedProcesses.length === 0) {
+  if (adminProcesses.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
         <AlertTriangle className="h-8 w-8 mx-auto mb-2" />
-        <p>You need to own a process to manage downtime reasons.</p>
+        <p>You need admin access to a process to manage downtime reasons.</p>
       </div>
     );
   }
@@ -600,7 +600,7 @@ function DowntimeReasonsSection() {
               <SelectValue placeholder="Select a process" />
             </SelectTrigger>
             <SelectContent>
-              {ownedProcesses.map(proc => (
+              {adminProcesses.map(proc => (
                 <SelectItem key={proc.id} value={proc.id}>{proc.name}</SelectItem>
               ))}
             </SelectContent>
@@ -733,7 +733,7 @@ function DowntimeReasonsSection() {
 }
 
 export default function AdminPage() {
-  const { data: ownedProcesses = [] } = useMyOwnedProcesses();
+  const { data: adminProcesses = [] } = useAdminProcesses();
   const { data: allNodes = [] } = useNodes();
   const createProcess = useCreateProcess();
   const createNode = useCreateNode();
@@ -743,9 +743,9 @@ export default function AdminPage() {
   const deleteNode = useDeleteNode();
   const { toast } = useToast();
   
-  // Filter nodes to only show those belonging to owned processes
-  const ownedProcessIds = new Set(ownedProcesses.map(p => p.id));
-  const ownedNodes = allNodes.filter(n => ownedProcessIds.has(n.processId));
+  // Filter nodes to only show those belonging to admin processes
+  const adminProcessIds = new Set(adminProcesses.map(p => p.id));
+  const adminNodes = allNodes.filter(n => adminProcessIds.has(n.processId));
   
   const [newProcessOpen, setNewProcessOpen] = React.useState(false);
   const [newNodeOpen, setNewNodeOpen] = React.useState(false);
@@ -928,14 +928,14 @@ export default function AdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ownedProcesses.length === 0 ? (
+            {adminProcesses.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No processes you own. Create a new process to get started.
+                  No processes you have admin access to. Create a new process to get started.
                 </TableCell>
               </TableRow>
             ) : (
-              ownedProcesses.map(p => (
+              adminProcesses.map(p => (
                 <TableRow key={p.id} data-testid={`row-process-${p.id}`}>
                   <TableCell className="font-mono text-xs">{p.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
@@ -1017,7 +1017,7 @@ export default function AdminPage() {
                       <SelectValue placeholder="Select a process" />
                     </SelectTrigger>
                     <SelectContent>
-                      {ownedProcesses.map(p => (
+                      {adminProcesses.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1044,15 +1044,15 @@ export default function AdminPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {ownedNodes.length === 0 ? (
+            {adminNodes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No nodes in your processes. Add nodes to track equipment.
+                  No nodes in processes you have admin access to. Add nodes to track equipment.
                 </TableCell>
               </TableRow>
             ) : (
-              ownedNodes.map(n => {
-                const process = ownedProcesses.find(p => p.id === n.processId);
+              adminNodes.map(n => {
+                const process = adminProcesses.find(p => p.id === n.processId);
                 return (
                   <TableRow key={n.id} data-testid={`row-node-${n.id}`}>
                     <TableCell className="font-mono text-xs">{n.id.substring(0, 8)}...</TableCell>
