@@ -734,6 +734,7 @@ function DowntimeReasonsSection() {
 
 export default function AdminPage() {
   const { data: adminProcesses = [] } = useAdminProcesses();
+  const { data: allProcesses = [] } = useProcesses();
   const { data: allNodes = [] } = useNodes();
   const createProcess = useCreateProcess();
   const createNode = useCreateNode();
@@ -743,9 +744,12 @@ export default function AdminPage() {
   const deleteNode = useDeleteNode();
   const { toast } = useToast();
   
-  // Filter nodes to only show those belonging to admin processes
+  // Show nodes where user has admin access - either via process or direct node permission
+  // allNodes already filters to nodes user has access to, and includes userRole
   const adminProcessIds = new Set(adminProcesses.map(p => p.id));
-  const adminNodes = allNodes.filter(n => adminProcessIds.has(n.processId));
+  const adminNodes = allNodes.filter(n => 
+    adminProcessIds.has(n.processId) || n.userRole === 'admin' || n.userRole === 'owner'
+  );
   
   const [newProcessOpen, setNewProcessOpen] = React.useState(false);
   const [newNodeOpen, setNewNodeOpen] = React.useState(false);
@@ -1047,12 +1051,12 @@ export default function AdminPage() {
             {adminNodes.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                  No nodes in processes you have admin access to. Add nodes to track equipment.
+                  No nodes you have admin access to. Add nodes to track equipment.
                 </TableCell>
               </TableRow>
             ) : (
               adminNodes.map(n => {
-                const process = adminProcesses.find(p => p.id === n.processId);
+                const process = allProcesses.find(p => p.id === n.processId);
                 return (
                   <TableRow key={n.id} data-testid={`row-node-${n.id}`}>
                     <TableCell className="font-mono text-xs">{n.id.substring(0, 8)}...</TableCell>
