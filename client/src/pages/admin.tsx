@@ -86,8 +86,23 @@ function AuthorizationSection() {
     return allNodes.filter(n => n.processId === selectedProcessId);
   }, [selectedProcessId, allNodes]);
   
-  // Filter out current user from assignable users
-  const assignableUsers = allUsers.filter(u => u.id !== currentUser?.id);
+  // Get permissions for selected process to filter out owners
+  const { data: selectedProcessPermissions = [] } = useProcessPermissions(selectedProcessId);
+  
+  // Filter out current user and process owners from assignable users
+  const assignableUsers = React.useMemo(() => {
+    // Get owner user IDs for the selected process
+    const ownerUserIds = new Set(
+      selectedProcessPermissions
+        .filter((p: any) => p.role === 'owner')
+        .map((p: any) => p.userId)
+    );
+    
+    // Filter out current user and owners
+    return allUsers.filter(u => 
+      u.id !== currentUser?.id && !ownerUserIds.has(u.id)
+    );
+  }, [allUsers, currentUser?.id, selectedProcessPermissions]);
   
   const handleAssignPermission = async () => {
     if (!selectedUserId || !selectedRole) {
