@@ -348,7 +348,7 @@ function MyAssignmentsSection() {
   return (
     <div className="space-y-4">
       <p className="text-muted-foreground">
-        View your access assignments. You can leave any assignment you no longer need.
+        View your access assignments. Admins can leave assignments; operators must contact an admin to be removed.
       </p>
       
       <Table>
