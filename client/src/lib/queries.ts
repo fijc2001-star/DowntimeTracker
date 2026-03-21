@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from './api';
-import type { InsertProcess, InsertNode, InsertDowntimeReason, InsertUserPermission } from '@shared/schema';
+import type { InsertProcess, InsertNode, InsertDowntimeReason, InsertUptimeReason, InsertUserPermission } from '@shared/schema';
 
 // Query Keys
 export const queryKeys = {
@@ -198,10 +198,53 @@ export function useStartDowntime() {
 export function useStopDowntime() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (nodeId: string) => api.stopDowntime(nodeId),
+    mutationFn: ({ nodeId, uptimeReasonId }: { nodeId: string; uptimeReasonId?: string }) => 
+      api.stopDowntime(nodeId, uptimeReasonId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: queryKeys.downtimeEvents() });
+    },
+  });
+}
+
+// Uptime Reason Queries (process-scoped)
+export function useUptimeReasonsByProcess(processId: string, includeInactive = false) {
+  return useQuery({
+    queryKey: ['uptimeReasons', processId, { includeInactive }],
+    queryFn: () => api.getUptimeReasonsByProcess(processId, includeInactive),
+    enabled: !!processId,
+  });
+}
+
+export function useCreateUptimeReason() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ processId, data }: { processId: string; data: Omit<InsertUptimeReason, 'processId'> }) => 
+      api.createUptimeReason(processId, data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'uptimeReasons' && query.queryKey[1] === variables.processId });
+    },
+  });
+}
+
+export function useUpdateUptimeReason() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, processId, data }: { id: string; processId: string; data: Partial<InsertUptimeReason> }) => 
+      api.updateUptimeReason(id, { ...data, processId }),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'uptimeReasons' && query.queryKey[1] === variables.processId });
+    },
+  });
+}
+
+export function useDeleteUptimeReason() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, processId }: { id: string; processId: string }) => 
+      api.deleteUptimeReason(id, processId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ predicate: (query) => query.queryKey[0] === 'uptimeReasons' && query.queryKey[1] === variables.processId });
     },
   });
 }

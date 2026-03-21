@@ -1,6 +1,6 @@
 import type { 
-  Process, Node, DowntimeReason, DowntimeEvent, UserPermission,
-  InsertProcess, InsertNode, InsertDowntimeReason, InsertDowntimeEvent, InsertUserPermission 
+  Process, Node, DowntimeReason, UptimeReason, DowntimeEvent, UserPermission,
+  InsertProcess, InsertNode, InsertDowntimeReason, InsertUptimeReason, InsertDowntimeEvent, InsertUserPermission 
 } from "@shared/schema";
 
 const API_BASE = "";
@@ -133,10 +133,36 @@ export async function startDowntime(nodeId: string, reasonId: string) {
   });
 }
 
-export async function stopDowntime(nodeId: string) {
+export async function stopDowntime(nodeId: string, uptimeReasonId?: string) {
   return fetchAPI<DowntimeEvent>('/api/downtime-events/stop', {
     method: 'POST',
-    body: JSON.stringify({ nodeId }),
+    body: JSON.stringify({ nodeId, ...(uptimeReasonId ? { uptimeReasonId } : {}) }),
+  });
+}
+
+// Uptime Reason API (process-scoped)
+export async function getUptimeReasonsByProcess(processId: string, includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  return fetchAPI<UptimeReason[]>(`/api/processes/${processId}/uptime-reasons${params}`);
+}
+
+export async function createUptimeReason(processId: string, data: Omit<InsertUptimeReason, 'processId'>) {
+  return fetchAPI<UptimeReason>(`/api/processes/${processId}/uptime-reasons`, {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateUptimeReason(id: string, data: Partial<InsertUptimeReason>) {
+  return fetchAPI<UptimeReason>(`/api/uptime-reasons/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteUptimeReason(id: string, processId: string) {
+  return fetchAPI<{ success: boolean }>(`/api/uptime-reasons/${id}?processId=${processId}`, {
+    method: 'DELETE',
   });
 }
 

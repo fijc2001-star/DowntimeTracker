@@ -45,8 +45,9 @@ Preferred communication style: Simple, everyday language.
 The core entities are:
 - **Processes**: Production lines or workflows
 - **Nodes**: Individual equipment/machines within processes
-- **Downtime Events**: Time-bounded records of equipment failures
-- **Downtime Reasons**: Categorized failure reasons (mechanical, electrical, operational, external)
+- **Downtime Events**: Time-bounded records of equipment failures with optional downtime reason (why it stopped) and uptime reason (why it restarted)
+- **Downtime Reasons**: Reasons selected when a machine is stopped (logged at downtime start)
+- **Uptime Reasons**: Reasons selected when a machine is restarted (logged at downtime end) — stored in `uptime_reasons` table, `uptimeReasonId` on `downtime_events`
 - **User Permissions**: Role-based access control per process (admin/operator)
 
 ### Access Control

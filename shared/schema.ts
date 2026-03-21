@@ -65,6 +65,23 @@ export const selectDowntimeReasonSchema = createSelectSchema(downtimeReasons);
 export type InsertDowntimeReason = z.infer<typeof insertDowntimeReasonSchema>;
 export type DowntimeReason = typeof downtimeReasons.$inferSelect;
 
+// Uptime Reasons table - linked to specific processes
+export const uptimeReasons = pgTable("uptime_reasons", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  processId: varchar("process_id").notNull().references(() => processes.id, { onDelete: "cascade" }),
+  label: text("label").notNull(),
+  isActive: boolean("is_active").default(true).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertUptimeReasonSchema = createInsertSchema(uptimeReasons).omit({ 
+  id: true, 
+  createdAt: true 
+});
+export const selectUptimeReasonSchema = createSelectSchema(uptimeReasons);
+export type InsertUptimeReason = z.infer<typeof insertUptimeReasonSchema>;
+export type UptimeReason = typeof uptimeReasons.$inferSelect;
+
 // Downtime Events table
 export const downtimeEvents = pgTable("downtime_events", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -73,6 +90,7 @@ export const downtimeEvents = pgTable("downtime_events", {
   startTime: timestamp("start_time").notNull(),
   endTime: timestamp("end_time"),
   reasonId: varchar("reason_id").references(() => downtimeReasons.id, { onDelete: "set null" }),
+  uptimeReasonId: varchar("uptime_reason_id").references(() => uptimeReasons.id, { onDelete: "set null" }),
   createdBy: varchar("created_by").notNull().references(() => users.id),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

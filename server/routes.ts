@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { registerAuthRoutes, isAuthenticated } from "./auth";
 import { z } from "zod";
 import { 
-  insertProcessSchema, insertNodeSchema, insertDowntimeReasonSchema, 
+  insertProcessSchema, insertNodeSchema, insertDowntimeReasonSchema, insertUptimeReasonSchema,
   insertDowntimeEventSchema, insertUserPermissionSchema 
 } from "@shared/schema";
 
@@ -392,6 +392,84 @@ export async function registerRoutes(
     }
   });
 
+  // ===== UPTIME REASON ENDPOINTS =====
+
+  app.get("/api/processes/:processId/uptime-reasons", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { processId } = req.params;
+      const includeInactive = req.query.includeInactive === 'true';
+
+      const hasAccess = await storage.hasProcessAccess(userId, processId);
+      if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+
+      const reasons = includeInactive
+        ? await storage.getUptimeReasonsByProcess(processId)
+        : await storage.getActiveUptimeReasonsByProcess(processId);
+      res.json(reasons);
+    } catch (error) {
+      console.error("Error fetching uptime reasons:", error);
+      res.status(500).json({ message: "Failed to fetch uptime reasons" });
+    }
+  });
+
+  app.post("/api/processes/:processId/uptime-reasons", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { processId } = req.params;
+
+      const hasAdmin = await storage.hasProcessAccess(userId, processId, 'admin');
+      if (!hasAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      const data = insertUptimeReasonSchema.parse({ ...req.body, processId });
+      const reason = await storage.createUptimeReason(data);
+      res.status(201).json(reason);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid data", errors: error.errors });
+      console.error("Error creating uptime reason:", error);
+      res.status(500).json({ message: "Failed to create uptime reason" });
+    }
+  });
+
+  app.patch("/api/uptime-reasons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+
+      const reasons = await storage.getUptimeReasonsByProcess(req.body.processId);
+      const reason = reasons.find(r => r.id === id);
+      if (!reason) return res.status(404).json({ message: "Uptime reason not found" });
+
+      const hasAdmin = await storage.hasProcessAccess(userId, reason.processId, 'admin');
+      if (!hasAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      const updated = await storage.updateUptimeReason(id, req.body);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error updating uptime reason:", error);
+      res.status(500).json({ message: "Failed to update uptime reason" });
+    }
+  });
+
+  app.delete("/api/uptime-reasons/:id", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { id } = req.params;
+      const processId = req.query.processId as string;
+
+      if (!processId) return res.status(400).json({ message: "processId query parameter required" });
+
+      const hasAdmin = await storage.hasProcessAccess(userId, processId, 'admin');
+      if (!hasAdmin) return res.status(403).json({ message: "Admin access required" });
+
+      await storage.deleteUptimeReason(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting uptime reason:", error);
+      res.status(500).json({ message: "Failed to delete uptime reason" });
+    }
+  });
+
   // ===== DOWNTIME EVENT ENDPOINTS =====
   
   // Get downtime events (filtered by access)
@@ -467,11 +545,11 @@ export async function registerRoutes(
     }
   });
 
-  // Stop downtime (update event with end time)
+  // Stop downtime (update event with end time and optional uptime reason)
   app.post("/api/downtime-events/stop", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const { nodeId } = req.body;
+      const { nodeId, uptimeReasonId } = req.body;
       
       if (!nodeId) {
         return res.status(400).json({ message: "nodeId is required" });
@@ -491,6 +569,7 @@ export async function registerRoutes(
       
       const event = await storage.updateDowntimeEvent(activeEvent.id, {
         endTime: new Date(),
+        ...(uptimeReasonId ? { uptimeReasonId } : {}),
       });
       
       res.json(event);

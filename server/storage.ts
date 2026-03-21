@@ -1,9 +1,10 @@
 import { db } from "./db";
 import { 
-  processes, nodes, downtimeReasons, downtimeEvents, userPermissions,
+  processes, nodes, downtimeReasons, uptimeReasons, downtimeEvents, userPermissions,
   type Process, type InsertProcess,
   type Node, type InsertNode,
   type DowntimeReason, type InsertDowntimeReason,
+  type UptimeReason, type InsertUptimeReason,
   type DowntimeEvent, type InsertDowntimeEvent,
   type UserPermission, type InsertUserPermission,
 } from "@shared/schema";
@@ -31,6 +32,13 @@ export interface IStorage {
   createDowntimeReason(reason: InsertDowntimeReason): Promise<DowntimeReason>;
   updateDowntimeReason(id: string, data: Partial<InsertDowntimeReason>): Promise<DowntimeReason | undefined>;
   deleteDowntimeReason(id: string): Promise<boolean>;
+
+  // Uptime reason operations
+  getUptimeReasonsByProcess(processId: string): Promise<UptimeReason[]>;
+  getActiveUptimeReasonsByProcess(processId: string): Promise<UptimeReason[]>;
+  createUptimeReason(reason: InsertUptimeReason): Promise<UptimeReason>;
+  updateUptimeReason(id: string, data: Partial<InsertUptimeReason>): Promise<UptimeReason | undefined>;
+  deleteUptimeReason(id: string): Promise<boolean>;
   
   // Downtime event operations
   getDowntimeEvents(filters?: { processId?: string; nodeId?: string }): Promise<DowntimeEvent[]>;
@@ -121,8 +129,9 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
-    // 3. Delete all downtime reasons for this process
+    // 3. Delete all downtime/uptime reasons for this process
     await db.delete(downtimeReasons).where(eq(downtimeReasons.processId, id));
+    await db.delete(uptimeReasons).where(eq(uptimeReasons.processId, id));
     
     // 4. Delete all nodes for this process
     await db.delete(nodes).where(eq(nodes.processId, id));
@@ -234,6 +243,49 @@ export class DatabaseStorage implements IStorage {
     const [reason] = await db
       .delete(downtimeReasons)
       .where(eq(downtimeReasons.id, id))
+      .returning();
+    return !!reason;
+  }
+
+  // Uptime reason operations
+  async getUptimeReasonsByProcess(processId: string): Promise<UptimeReason[]> {
+    return await db.select().from(uptimeReasons)
+      .where(eq(uptimeReasons.processId, processId))
+      .orderBy(uptimeReasons.label);
+  }
+
+  async getActiveUptimeReasonsByProcess(processId: string): Promise<UptimeReason[]> {
+    return await db.select().from(uptimeReasons)
+      .where(and(
+        eq(uptimeReasons.processId, processId),
+        eq(uptimeReasons.isActive, true)
+      ))
+      .orderBy(uptimeReasons.label);
+  }
+
+  async createUptimeReason(reasonData: InsertUptimeReason): Promise<UptimeReason> {
+    const [reason] = await db.insert(uptimeReasons).values(reasonData).returning();
+    return reason;
+  }
+
+  async updateUptimeReason(id: string, data: Partial<InsertUptimeReason>): Promise<UptimeReason | undefined> {
+    const [reason] = await db
+      .update(uptimeReasons)
+      .set(data)
+      .where(eq(uptimeReasons.id, id))
+      .returning();
+    return reason;
+  }
+
+  async deleteUptimeReason(id: string): Promise<boolean> {
+    await db
+      .update(downtimeEvents)
+      .set({ uptimeReasonId: null })
+      .where(eq(downtimeEvents.uptimeReasonId, id));
+
+    const [reason] = await db
+      .delete(uptimeReasons)
+      .where(eq(uptimeReasons.id, id))
       .returning();
     return !!reason;
   }
