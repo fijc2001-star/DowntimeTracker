@@ -15,6 +15,7 @@ import ProcessesPage from "@/pages/processes";
 import ProcessView from "@/pages/process-view";
 import NodeView from "@/pages/node-view";
 import AdminPage from "@/pages/admin";
+import HelpPage from "@/pages/help";
 
 function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
   const { data: user, isLoading } = useCurrentUser();
@@ -61,6 +62,10 @@ function Router() {
       
       <Route path="/processes">
         <ProtectedRoute component={ProcessesPage} />
+      </Route>
+
+      <Route path="/help">
+        <ProtectedRoute component={HelpPage} />
       </Route>
 
       <Route component={NotFound} />

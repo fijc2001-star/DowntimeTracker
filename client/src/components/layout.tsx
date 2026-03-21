@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLocation, Link } from 'wouter';
 import { useCurrentUser, useLogout } from '@/lib/queries';
-import { LayoutDashboard, Settings, Activity, Power, Menu, PanelLeftClose, PanelLeft } from 'lucide-react';
+import { LayoutDashboard, Settings, Activity, Power, Menu, PanelLeftClose, PanelLeft, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -77,6 +77,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         <NavItem href="/" icon={LayoutDashboard} label="Dashboard" exact />
         <NavItem href="/processes" icon={Activity} label="Operations" />
         <NavItem href="/admin" icon={Settings} label="Administration" />
+        <NavItem href="/help" icon={HelpCircle} label="Help" />
       </div>
 
       <div className={`p-4 border-t border-sidebar-border bg-sidebar-accent/20`}>
