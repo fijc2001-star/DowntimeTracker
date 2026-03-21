@@ -37,9 +37,9 @@ function SectionHeading({ id, icon: Icon, title, subtitle }: { id: string; icon:
 
 function Callout({ type, children }: { type: 'info' | 'warning' | 'success'; children: React.ReactNode }) {
   const styles = {
-    info: { bg: 'bg-blue-50 dark:bg-blue-950/30', border: 'border-blue-200 dark:border-blue-800', icon: Info, iconColor: 'text-blue-500' },
-    warning: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', icon: AlertCircle, iconColor: 'text-amber-500' },
-    success: { bg: 'bg-green-50 dark:bg-green-950/30', border: 'border-green-200 dark:border-green-800', icon: CheckCircle2, iconColor: 'text-green-500' },
+    info:    { bg: 'bg-blue-500/10',  border: 'border-blue-500/40',  icon: Info,         iconColor: 'text-blue-400' },
+    warning: { bg: 'bg-amber-500/10', border: 'border-amber-500/40', icon: AlertCircle,  iconColor: 'text-amber-400' },
+    success: { bg: 'bg-green-500/10', border: 'border-green-500/40', icon: CheckCircle2, iconColor: 'text-green-400' },
   };
   const s = styles[type];
   const Icon = s.icon;
@@ -53,9 +53,9 @@ function Callout({ type, children }: { type: 'info' | 'warning' | 'success'; chi
 
 function RoleBadge({ role }: { role: 'owner' | 'admin' | 'operator' }) {
   const styles = {
-    owner: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300 border-purple-200 dark:border-purple-700',
-    admin: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 border-blue-200 dark:border-blue-700',
-    operator: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border-slate-200 dark:border-slate-600',
+    owner: 'bg-purple-500/15 text-purple-300 border-purple-500/40',
+    admin: 'bg-blue-500/15 text-blue-300 border-blue-500/40',
+    operator: 'bg-slate-500/15 text-slate-300 border-slate-500/40',
   };
   const icons = { owner: Crown, admin: UserCog, operator: User };
   const Icon = icons[role];
@@ -379,20 +379,20 @@ export default function HelpPage() {
 
             <SubHeading>Node Status Indicators</SubHeading>
             <div className="grid sm:grid-cols-2 gap-3 mb-6">
-              <Card className="border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-950/20">
+              <Card className="border-green-500/40 bg-green-500/10">
                 <CardContent className="p-4 flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0" />
+                  <CheckCircle2 className="h-5 w-5 text-green-400 shrink-0" />
                   <div>
-                    <p className="font-semibold text-sm text-green-700 dark:text-green-400">Running</p>
+                    <p className="font-semibold text-sm text-green-400">Running</p>
                     <p className="text-xs text-muted-foreground">Node is operational. No active downtime event.</p>
                   </div>
                 </CardContent>
               </Card>
-              <Card className="border-red-200 dark:border-red-800 bg-red-50/50 dark:bg-red-950/20">
+              <Card className="border-red-500/40 bg-red-500/10">
                 <CardContent className="p-4 flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-500 shrink-0" />
+                  <AlertCircle className="h-5 w-5 text-red-400 shrink-0" />
                   <div>
-                    <p className="font-semibold text-sm text-red-700 dark:text-red-400">Down</p>
+                    <p className="font-semibold text-sm text-red-400">Down</p>
                     <p className="text-xs text-muted-foreground">Active downtime event in progress. Elapsed time shown.</p>
                   </div>
                 </CardContent>
