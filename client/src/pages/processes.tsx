@@ -79,7 +79,7 @@ function NodeOperationalPanel({
 
   const handleResume = async () => {
     try {
-      await stopDowntime.mutateAsync(node.id);
+      await stopDowntime.mutateAsync({ nodeId: node.id });
       toast({
         title: 'Production Resumed',
         description: `${node.name} is now running.`,
