@@ -441,7 +441,7 @@ export default function HelpPage() {
               {
                 icon: Settings,
                 title: 'Administration — Process & Node Management',
-                roles: ['owner', 'admin'] as const[],
+                roles: ['owner', 'admin'] as Array<'owner' | 'admin' | 'operator'>,
                 items: [
                   'Create a new process with a name and optional description.',
                   'Expand any process to view and manage its nodes.',
@@ -455,7 +455,7 @@ export default function HelpPage() {
               {
                 icon: Activity,
                 title: 'Downtime Reasons',
-                roles: ['owner', 'admin'] as const[],
+                roles: ['owner', 'admin'] as Array<'owner' | 'admin' | 'operator'>,
                 items: [
                   'Each process has its own separate list of reasons.',
                   'Create new reasons with a custom label (e.g. "Power failure", "Scheduled maintenance").',
@@ -466,7 +466,7 @@ export default function HelpPage() {
               {
                 icon: ShieldCheck,
                 title: 'Authorization',
-                roles: ['owner'] as const[],
+                roles: ['owner'] as Array<'owner' | 'admin' | 'operator'>,
                 items: [
                   'Only visible to process owners.',
                   'Assign any registered user to a process or a specific node.',
@@ -479,7 +479,7 @@ export default function HelpPage() {
               {
                 icon: User,
                 title: 'My Assignments',
-                roles: ['owner', 'admin', 'operator'] as const[],
+                roles: ['owner', 'admin', 'operator'] as Array<'owner' | 'admin' | 'operator'>,
                 items: [
                   'Visible to every logged-in user.',
                   'Shows all processes and nodes you have been given access to, along with your role on each.',
