@@ -36,16 +36,25 @@ function SectionHeading({ id, icon: Icon, title, subtitle }: { id: string; icon:
 }
 
 function Callout({ type, children }: { type: 'info' | 'warning' | 'success'; children: React.ReactNode }) {
-  const styles = {
-    info:    { bg: 'bg-blue-500/10',  border: 'border-blue-500/40',  icon: Info,         iconColor: 'text-blue-400' },
-    warning: { bg: 'bg-amber-500/10', border: 'border-amber-500/40', icon: AlertCircle,  iconColor: 'text-amber-400' },
-    success: { bg: 'bg-green-500/10', border: 'border-green-500/40', icon: CheckCircle2, iconColor: 'text-green-400' },
-  };
-  const s = styles[type];
-  const Icon = s.icon;
+  if (type === 'warning') {
+    return (
+      <div className="flex gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4 mb-4">
+        <AlertCircle className="h-5 w-5 shrink-0 mt-0.5 text-amber-400" />
+        <div className="text-sm text-foreground leading-relaxed">{children}</div>
+      </div>
+    );
+  }
+  if (type === 'success') {
+    return (
+      <div className="flex gap-3 rounded-lg border border-green-500/40 bg-green-500/10 p-4 mb-4">
+        <CheckCircle2 className="h-5 w-5 shrink-0 mt-0.5 text-green-400" />
+        <div className="text-sm text-foreground leading-relaxed">{children}</div>
+      </div>
+    );
+  }
   return (
-    <div className={`flex gap-3 rounded-lg border p-4 mb-4 ${s.bg} ${s.border}`}>
-      <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${s.iconColor}`} />
+    <div className="flex gap-3 rounded-lg border border-blue-500/40 bg-blue-500/10 p-4 mb-4">
+      <Info className="h-5 w-5 shrink-0 mt-0.5 text-blue-400" />
       <div className="text-sm text-foreground leading-relaxed">{children}</div>
     </div>
   );
