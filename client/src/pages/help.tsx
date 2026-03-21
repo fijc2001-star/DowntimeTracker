@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   LogIn, Layers, ShieldCheck, Activity, Settings, BarChart3, Trash2,
   ChevronRight, AlertCircle, CheckCircle2, Info, Crown, UserCog, User,
-  PlayCircle, StopCircle, Clock, Filter, BookOpen
+  PlayCircle, StopCircle, Clock, Filter, BookOpen, ArrowUp
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -19,16 +19,26 @@ const SECTIONS = [
 ];
 
 function SectionHeading({ id, icon: Icon, title, subtitle }: { id: string; icon: any; title: string; subtitle: string }) {
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: 'smooth' });
   return (
     <div id={id} className="scroll-mt-6">
       <div className="flex items-center gap-3 mb-2">
         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
           <Icon className="h-5 w-5 text-primary" />
         </div>
-        <div>
+        <div className="flex-1 min-w-0">
           <h2 className="text-xl font-bold text-foreground">{title}</h2>
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
+        <button
+          onClick={scrollToTop}
+          data-testid={`button-back-to-top-${id}`}
+          title="Back to contents"
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground border border-border hover:bg-muted hover:text-foreground transition-colors shrink-0"
+        >
+          <ArrowUp className="h-3 w-3" />
+          <span className="hidden sm:inline">Contents</span>
+        </button>
       </div>
       <Separator className="mt-4 mb-6" />
     </div>
