@@ -204,6 +204,33 @@ export default function HelpPage() {
                   </button>
                 ))}
               </nav>
+
+              <div className="mt-4 pt-4 border-t border-border">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 px-2">Message Types</p>
+                <div className="space-y-1.5 px-1" data-testid="legend-message-types">
+                  <div className="flex items-start gap-2.5 px-1 py-1" data-testid="legend-info">
+                    <Info className="h-3.5 w-3.5 text-blue-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-medium text-blue-400 leading-tight">Info</p>
+                      <p className="text-xs text-muted-foreground leading-tight">Useful context, no action needed</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5 px-1 py-1" data-testid="legend-warning">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-medium text-amber-400 leading-tight">Warning</p>
+                      <p className="text-xs text-muted-foreground leading-tight">Pay attention, may have consequences</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2.5 px-1 py-1" data-testid="legend-tip">
+                    <CheckCircle2 className="h-3.5 w-3.5 text-green-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-medium text-green-400 leading-tight">Tip</p>
+                      <p className="text-xs text-muted-foreground leading-tight">Helpful fact about system behaviour</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </CardContent>
           </Card>
         </aside>
