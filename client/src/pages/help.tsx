@@ -46,7 +46,7 @@ function Callout({ type, children }: { type: 'info' | 'warning' | 'success'; chi
   return (
     <div className={`flex gap-3 rounded-lg border p-4 mb-4 ${s.bg} ${s.border}`}>
       <Icon className={`h-5 w-5 shrink-0 mt-0.5 ${s.iconColor}`} />
-      <div className="text-sm text-foreground/80 leading-relaxed">{children}</div>
+      <div className="text-sm text-foreground leading-relaxed">{children}</div>
     </div>
   );
 }
