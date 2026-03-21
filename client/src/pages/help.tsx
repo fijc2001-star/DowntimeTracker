@@ -219,7 +219,7 @@ export default function HelpPage() {
                     <AlertCircle className="h-3.5 w-3.5 text-amber-400 shrink-0 mt-0.5" />
                     <div>
                       <p className="text-xs font-medium text-amber-400 leading-tight">Warning</p>
-                      <p className="text-xs text-muted-foreground leading-tight">Pay attention, may have consequences</p>
+                      <p className="text-xs text-muted-foreground leading-tight">Potential consequence, pay attention</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2.5 px-1 py-1" data-testid="legend-tip">
