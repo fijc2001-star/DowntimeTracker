@@ -57,6 +57,7 @@ export function useCreateProcess() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.processes });
       queryClient.invalidateQueries({ queryKey: ['processes', 'owned'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-processes'] });
     },
   });
 }
@@ -69,6 +70,7 @@ export function useUpdateProcess() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.processes });
       queryClient.invalidateQueries({ queryKey: queryKeys.process(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-processes'] });
     },
   });
 }
@@ -80,6 +82,7 @@ export function useDeleteProcess() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.processes });
       queryClient.invalidateQueries({ queryKey: ['processes', 'owned'] });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-processes'] });
     },
   });
 }
@@ -107,6 +110,7 @@ export function useCreateNode() {
     mutationFn: (data: InsertNode) => api.createNode(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-nodes'] });
     },
   });
 }
@@ -119,6 +123,7 @@ export function useUpdateNode() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: queryKeys.node(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-nodes'] });
     },
   });
 }
@@ -129,6 +134,7 @@ export function useDeleteNode() {
     mutationFn: (id: string) => api.deleteNode(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
+      queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-nodes'] });
     },
   });
 }
