@@ -91,9 +91,17 @@ export default function Dashboard() {
       const entityName = entityType === 'process'
         ? (adminProcesses.find(p => p.id === selectedProcessId)?.name ?? 'unknown')
         : (uniqueAdminNodes.find(n => n.id === selectedNodeId)?.name ?? 'unknown');
-      const today = format(new Date(), 'yyyy-MM-dd');
+      const safeName = entityName.replace(/[^a-zA-Z0-9_-]/g, '-');
+      const fmtDate = (d: Date) => format(d, 'yyyy-MM-dd');
+      const dateSuffix = startDate && endDate
+        ? `${fmtDate(startDate)}-to-${fmtDate(endDate)}`
+        : startDate
+          ? `from-${fmtDate(startDate)}`
+          : endDate
+            ? `to-${fmtDate(endDate)}`
+            : 'all-time';
       a.href = url;
-      a.download = `downtime-log-${entityName.replace(/[^a-zA-Z0-9_-]/g, '-')}-${today}.csv`;
+      a.download = `downtime-log-${safeName}-${dateSuffix}.csv`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
