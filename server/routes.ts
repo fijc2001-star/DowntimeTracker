@@ -715,6 +715,38 @@ export async function registerRoutes(
     }
   });
 
+  // Get downtime percentage KPI for a process or node
+  app.get("/api/analytics/downtime-percentage/:entityType/:entityId", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const { entityType, entityId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      if (entityType !== 'process' && entityType !== 'node') {
+        return res.status(400).json({ message: "Invalid entity type" });
+      }
+
+      if (entityType === 'process') {
+        const hasAccess = await storage.hasProcessAccess(userId, entityId, 'admin');
+        if (!hasAccess) return res.status(403).json({ message: "Access denied - admin/owner required" });
+      } else {
+        const hasAccess = await storage.hasNodeAccess(userId, entityId, 'admin');
+        if (!hasAccess) return res.status(403).json({ message: "Access denied - admin/owner required" });
+      }
+
+      const result = await storage.getDowntimePercentage(
+        entityType,
+        entityId,
+        startDate as string | undefined,
+        endDate as string | undefined
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching downtime percentage:", error);
+      res.status(500).json({ message: "Failed to fetch downtime percentage" });
+    }
+  });
+
   // ===== USER ENDPOINTS =====
   
   // Get all users (for authorization assignment)

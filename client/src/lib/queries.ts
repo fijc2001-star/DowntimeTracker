@@ -372,3 +372,11 @@ export function useDowntimeStatsByNode(processId: string | null, startDate?: str
     enabled: !!processId,
   });
 }
+
+export function useDowntimePercentage(entityType: 'process' | 'node' | null, entityId: string | null, startDate?: string, endDate?: string) {
+  return useQuery({
+    queryKey: ['analytics', 'downtime-percentage', entityType, entityId, startDate, endDate],
+    queryFn: () => api.getDowntimePercentage(entityType!, entityId!, startDate, endDate),
+    enabled: !!entityType && !!entityId,
+  });
+}

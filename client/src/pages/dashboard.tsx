@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
-import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntimeStatsByNode, useProcesses } from '@/lib/queries';
+import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntimeStatsByNode, useDowntimePercentage, useProcesses } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { BarChart3, Loader2, Filter, AlertTriangle, Calendar as CalendarIcon, RotateCcw, Download } from 'lucide-react';
+import { BarChart3, Loader2, Filter, AlertTriangle, Calendar as CalendarIcon, RotateCcw, Download, TrendingDown } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Button } from '@/components/ui/button';
@@ -177,6 +177,13 @@ export default function Dashboard() {
 
   const { data: nodeStats = [], isLoading: nodeStatsLoading } = useDowntimeStatsByNode(
     entityType === 'process' && breakdownType === 'node' ? selectedProcessId : null,
+    formatDateForApi(startDate),
+    formatDateForApi(endDate)
+  );
+
+  const { data: downtimePct } = useDowntimePercentage(
+    selectedEntityId ? entityType : null,
+    selectedEntityId,
     formatDateForApi(startDate),
     formatDateForApi(endDate)
   );
@@ -467,6 +474,42 @@ export default function Dashboard() {
               </div>
             </CardContent>
           </Card>
+
+          {selectedEntityId && downtimePct && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between gap-6 flex-wrap">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-destructive/10">
+                      <TrendingDown className="h-5 w-5 text-destructive" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground font-medium">Downtime Rate</p>
+                      <p className="text-xs text-muted-foreground">
+                        {entityType === 'process'
+                          ? `Across ${downtimePct.nodeCount} active node${downtimePct.nodeCount !== 1 ? 's' : ''}`
+                          : 'Single node'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p
+                      className="text-4xl font-bold tabular-nums"
+                      style={{ color: downtimePct.downtimePercentage >= 50 ? 'hsl(var(--destructive))' : downtimePct.downtimePercentage >= 20 ? 'hsl(var(--warning))' : 'hsl(var(--primary))' }}
+                      data-testid="text-downtime-percentage"
+                    >
+                      {downtimePct.downtimePercentage.toFixed(1)}%
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {format(new Date(downtimePct.effectiveStart), 'MMM d, yyyy')}
+                      {' – '}
+                      {format(new Date(downtimePct.effectiveEnd), 'MMM d, yyyy')}
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

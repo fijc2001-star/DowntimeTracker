@@ -89,6 +89,14 @@ export interface IStorage {
   // Analytics
   getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string): Promise<{ reasonLabel: string; totalDuration: number }[]>;
   getDowntimeStatsByNode(processId: string, startDate?: string, endDate?: string): Promise<{ nodeId: string; nodeName: string; totalDuration: number }[]>;
+  getDowntimePercentage(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string): Promise<{
+    totalDowntimeMs: number;
+    timeframeDurationMs: number;
+    nodeCount: number;
+    downtimePercentage: number;
+    effectiveStart: string;
+    effectiveEnd: string;
+  }>;
   getUserAdminProcesses(userId: string): Promise<Process[]>;
   getUserAdminNodes(userId: string): Promise<Node[]>;
 }
@@ -833,6 +841,77 @@ export class DatabaseStorage implements IStorage {
         totalDuration,
       }))
       .sort((a, b) => b.totalDuration - a.totalDuration);
+  }
+
+  async getDowntimePercentage(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string): Promise<{
+    totalDowntimeMs: number;
+    timeframeDurationMs: number;
+    nodeCount: number;
+    downtimePercentage: number;
+    effectiveStart: string;
+    effectiveEnd: string;
+  }> {
+    const now = new Date();
+    const filterStart = startDate ? new Date(startDate) : null;
+    const filterEnd = endDate ? new Date(endDate + 'T23:59:59.999Z') : null;
+
+    const whereCondition = entityType === 'process'
+      ? eq(downtimeEvents.processId, entityId)
+      : eq(downtimeEvents.nodeId, entityId);
+
+    const events = await db
+      .select({
+        startTime: downtimeEvents.startTime,
+        endTime: downtimeEvents.endTime,
+      })
+      .from(downtimeEvents)
+      .where(whereCondition);
+
+    // Filter events that overlap with the window and compute total downtime
+    let totalDowntimeMs = 0;
+    let minEventStart: Date | null = null;
+
+    for (const event of events) {
+      const eventEnd = event.endTime ? new Date(event.endTime) : now;
+      const eventStart = new Date(event.startTime);
+
+      if (filterStart && eventEnd < filterStart) continue;
+      if (filterEnd && eventStart > filterEnd) continue;
+
+      const effectiveStart = filterStart && eventStart < filterStart ? filterStart : eventStart;
+      const effectiveEnd = filterEnd && eventEnd > filterEnd ? filterEnd : eventEnd;
+      const durationMs = effectiveEnd.getTime() - effectiveStart.getTime();
+      if (durationMs > 0) totalDowntimeMs += durationMs;
+
+      if (!minEventStart || eventStart < minEventStart) minEventStart = eventStart;
+    }
+
+    const effectiveStart = filterStart ?? minEventStart ?? now;
+    const effectiveEnd = filterEnd ?? now;
+    const timeframeDurationMs = Math.max(effectiveEnd.getTime() - effectiveStart.getTime(), 1);
+
+    // Node count: for process use active nodes count; for node use 1
+    let nodeCount = 1;
+    if (entityType === 'process') {
+      const activeNodes = await db.select({ id: nodes.id })
+        .from(nodes)
+        .where(and(eq(nodes.processId, entityId), eq(nodes.isActive, true)));
+      nodeCount = Math.max(activeNodes.length, 1);
+    }
+
+    const downtimePercentage = Math.min(
+      (totalDowntimeMs / (timeframeDurationMs * nodeCount)) * 100,
+      100
+    );
+
+    return {
+      totalDowntimeMs,
+      timeframeDurationMs,
+      nodeCount,
+      downtimePercentage: Math.round(downtimePercentage * 10) / 10,
+      effectiveStart: effectiveStart.toISOString(),
+      effectiveEnd: effectiveEnd.toISOString(),
+    };
   }
 
   async getUserAdminProcesses(userId: string): Promise<Process[]> {

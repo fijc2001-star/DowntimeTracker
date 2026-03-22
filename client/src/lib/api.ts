@@ -239,6 +239,21 @@ export async function getDowntimeStatsByNode(processId: string, startDate?: stri
   return fetchAPI<{ nodeId: string; nodeName: string; totalDuration: number }[]>(`/api/analytics/downtime-stats-by-node/${processId}${queryString}`);
 }
 
+export async function getDowntimePercentage(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string) {
+  const params = new URLSearchParams();
+  if (startDate) params.append('startDate', startDate);
+  if (endDate) params.append('endDate', endDate);
+  const queryString = params.toString() ? `?${params}` : '';
+  return fetchAPI<{
+    totalDowntimeMs: number;
+    timeframeDurationMs: number;
+    nodeCount: number;
+    downtimePercentage: number;
+    effectiveStart: string;
+    effectiveEnd: string;
+  }>(`/api/analytics/downtime-percentage/${entityType}/${entityId}${queryString}`);
+}
+
 export async function exportDowntimeEvents(params: {
   processId?: string;
   nodeId?: string;
