@@ -8,7 +8,7 @@ import {
   type DowntimeEvent, type InsertDowntimeEvent,
   type UserPermission, type InsertUserPermission,
 } from "@shared/schema";
-import { eq, and, desc, isNull, or, sql, inArray, gte, lte } from "drizzle-orm";
+import { eq, and, desc, isNull, or, sql, inArray } from "drizzle-orm";
 
 export interface IStorage {
   // Process operations
@@ -334,11 +334,7 @@ export class DatabaseStorage implements IStorage {
     const filterEnd = filters.endDate ? new Date(filters.endDate + 'T23:59:59.999Z') : null;
     const now = new Date();
 
-    const entityConditions: any[] = [];
-    if (filters.processId) entityConditions.push(eq(downtimeEvents.processId, filters.processId));
-    if (filters.nodeId) entityConditions.push(eq(downtimeEvents.nodeId, filters.nodeId));
-
-    const rows = await db
+    const rawRows = await db
       .select({
         processName: processes.name,
         nodeName: nodes.name,
@@ -348,22 +344,28 @@ export class DatabaseStorage implements IStorage {
         startReason: uptimeReasons.label,
       })
       .from(downtimeEvents)
-      .innerJoin(nodes, eq(downtimeEvents.nodeId, nodes.id))
-      .innerJoin(processes, eq(downtimeEvents.processId, processes.id))
+      .leftJoin(nodes, eq(downtimeEvents.nodeId, nodes.id))
+      .leftJoin(processes, eq(downtimeEvents.processId, processes.id))
       .leftJoin(downtimeReasons, eq(downtimeEvents.reasonId, downtimeReasons.id))
       .leftJoin(uptimeReasons, eq(downtimeEvents.uptimeReasonId, uptimeReasons.id))
-      .where(entityConditions.length > 0 ? and(...entityConditions) : undefined)
+      .where(and(
+        filters.processId ? eq(downtimeEvents.processId, filters.processId) : undefined,
+        filters.nodeId ? eq(downtimeEvents.nodeId, filters.nodeId) : undefined,
+      ))
       .orderBy(desc(downtimeEvents.startTime));
 
-    if (!filterStart && !filterEnd) return rows;
-
-    return rows.filter(row => {
-      const eventStart = new Date(row.stopTime);
-      const eventEnd = row.startTime ? new Date(row.startTime) : now;
-      if (filterStart && eventEnd < filterStart) return false;
-      if (filterEnd && eventStart > filterEnd) return false;
-      return true;
-    });
+    return rawRows
+      .filter((r): r is typeof r & { processName: string; nodeName: string } =>
+        r.processName !== null && r.nodeName !== null
+      )
+      .filter(row => {
+        if (!filterStart && !filterEnd) return true;
+        const eventStart = new Date(row.stopTime);
+        const eventEnd = row.startTime ? new Date(row.startTime) : now;
+        if (filterStart && eventEnd < filterStart) return false;
+        if (filterEnd && eventStart > filterEnd) return false;
+        return true;
+      });
   }
 
   async getActiveDowntimeEvent(nodeId: string): Promise<DowntimeEvent | undefined> {
