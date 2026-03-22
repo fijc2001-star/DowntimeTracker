@@ -502,6 +502,37 @@ export async function registerRoutes(
     }
   });
 
+  // Export downtime events as enriched JSON for CSV download
+  app.get("/api/downtime-events/export", isAuthenticated, async (req, res) => {
+    try {
+      const userId = getUserId(req);
+      const processId = req.query.processId as string | undefined;
+      const nodeId = req.query.nodeId as string | undefined;
+      const startDate = req.query.startDate as string | undefined;
+      const endDate = req.query.endDate as string | undefined;
+
+      if (!processId && !nodeId) {
+        return res.status(400).json({ message: "processId or nodeId is required" });
+      }
+
+      if (processId) {
+        const hasAccess = await storage.hasProcessAccess(userId, processId);
+        if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+      }
+
+      if (nodeId) {
+        const hasAccess = await storage.hasNodeAccess(userId, nodeId);
+        if (!hasAccess) return res.status(403).json({ message: "Access denied" });
+      }
+
+      const events = await storage.getDowntimeEventsEnriched({ processId, nodeId, startDate, endDate });
+      res.json(events);
+    } catch (error) {
+      console.error("Error exporting downtime events:", error);
+      res.status(500).json({ message: "Failed to export downtime events" });
+    }
+  });
+
   // Start downtime (create event with reason)
   app.post("/api/downtime-events/start", isAuthenticated, async (req, res) => {
     try {

@@ -3,13 +3,14 @@ import { useAdminProcesses, useAdminNodes, useDowntimeStatsByReason, useDowntime
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { BarChart3, Loader2, Filter, AlertTriangle, Calendar as CalendarIcon, RotateCcw } from 'lucide-react';
+import { BarChart3, Loader2, Filter, AlertTriangle, Calendar as CalendarIcon, RotateCcw, Download } from 'lucide-react';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
+import { exportDowntimeEvents } from '@/lib/api';
 
 type EntityType = 'process' | 'node';
 type BreakdownType = 'reason' | 'node';
@@ -33,6 +34,7 @@ export default function Dashboard() {
   const [breakdownType, setBreakdownType] = useState<BreakdownType>('reason');
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
+  const [isExporting, setIsExporting] = useState(false);
 
   const resetFilters = () => {
     setEntityType('process');
@@ -46,6 +48,59 @@ export default function Dashboard() {
   const formatDateForApi = (date: Date | undefined): string | undefined => {
     if (!date) return undefined;
     return format(date, 'yyyy-MM-dd');
+  };
+
+  const formatLocalDateTime = (dateStr: string | null): string => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+  };
+
+  const csvQuote = (value: string | null | undefined): string => {
+    const str = value ?? '';
+    return '"' + str.replace(/"/g, '""') + '"';
+  };
+
+  const handleExportCsv = async () => {
+    if (!selectedEntityId) return;
+    setIsExporting(true);
+    try {
+      const events = await exportDowntimeEvents({
+        processId: entityType === 'process' ? selectedEntityId : undefined,
+        nodeId: entityType === 'node' ? selectedEntityId : undefined,
+        startDate: formatDateForApi(startDate),
+        endDate: formatDateForApi(endDate),
+      });
+
+      const headerRow = ['Process', 'Node', 'Stop Date/Time', 'Down Reason', 'Start Date/Time', 'Start Reason']
+        .map(h => `"${h}"`).join(',');
+      const dataRows = events.map(e => [
+        csvQuote(e.processName),
+        csvQuote(e.nodeName),
+        csvQuote(formatLocalDateTime(e.stopTime)),
+        csvQuote(e.downReason),
+        csvQuote(e.startTime ? formatLocalDateTime(e.startTime) : null),
+        csvQuote(e.startReason),
+      ].join(','));
+
+      const csvContent = '\uFEFF' + [headerRow, ...dataRows].join('\r\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const entityName = entityType === 'process'
+        ? (adminProcesses.find(p => p.id === selectedProcessId)?.name ?? 'unknown')
+        : (uniqueAdminNodes.find(n => n.id === selectedNodeId)?.name ?? 'unknown');
+      const today = format(new Date(), 'yyyy-MM-dd');
+      a.href = url;
+      a.download = `downtime-log-${entityName.replace(/[^a-zA-Z0-9_-]/g, '-')}-${today}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const { data: adminProcesses = [], isLoading: processesLoading } = useAdminProcesses();
@@ -392,32 +447,46 @@ export default function Dashboard() {
                     Downtime {breakdownType === 'reason' ? 'by Reason' : 'by Node'}
                   </CardTitle>
                 </div>
-                {entityType === 'process' && selectedProcessId && (
-                  <div className="flex items-center gap-2">
-                    <Label className="text-sm text-muted-foreground">Breakdown:</Label>
-                    <ToggleGroup
-                      type="single"
-                      value={breakdownType}
-                      onValueChange={(value) => value && setBreakdownType(value as BreakdownType)}
-                      className="bg-muted rounded-md p-1"
+                <div className="flex items-center gap-3">
+                  {entityType === 'process' && selectedProcessId && (
+                    <div className="flex items-center gap-2">
+                      <Label className="text-sm text-muted-foreground">Breakdown:</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={breakdownType}
+                        onValueChange={(value) => value && setBreakdownType(value as BreakdownType)}
+                        className="bg-muted rounded-md p-1"
+                      >
+                        <ToggleGroupItem
+                          value="reason"
+                          className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                          data-testid="toggle-by-reason"
+                        >
+                          By Reason
+                        </ToggleGroupItem>
+                        <ToggleGroupItem
+                          value="node"
+                          className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
+                          data-testid="toggle-by-node"
+                        >
+                          By Node
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+                  {selectedEntityId && chartData.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleExportCsv}
+                      disabled={isExporting}
+                      data-testid="button-export-csv"
                     >
-                      <ToggleGroupItem
-                        value="reason"
-                        className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                        data-testid="toggle-by-reason"
-                      >
-                        By Reason
-                      </ToggleGroupItem>
-                      <ToggleGroupItem
-                        value="node"
-                        className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
-                        data-testid="toggle-by-node"
-                      >
-                        By Node
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                  </div>
-                )}
+                      <Download className="h-4 w-4 mr-1" />
+                      Export CSV
+                    </Button>
+                  )}
+                </div>
               </div>
               <CardDescription>
                 {selectedEntityId

@@ -8,7 +8,7 @@ import {
   type DowntimeEvent, type InsertDowntimeEvent,
   type UserPermission, type InsertUserPermission,
 } from "@shared/schema";
-import { eq, and, desc, isNull, or, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, isNull, or, sql, inArray, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Process operations
@@ -42,6 +42,19 @@ export interface IStorage {
   
   // Downtime event operations
   getDowntimeEvents(filters?: { processId?: string; nodeId?: string }): Promise<DowntimeEvent[]>;
+  getDowntimeEventsEnriched(filters: {
+    processId?: string;
+    nodeId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Array<{
+    processName: string;
+    nodeName: string;
+    stopTime: Date;
+    downReason: string | null;
+    startTime: Date | null;
+    startReason: string | null;
+  }>>;
   getActiveDowntimeEvent(nodeId: string): Promise<DowntimeEvent | undefined>;
   createDowntimeEvent(event: InsertDowntimeEvent): Promise<DowntimeEvent>;
   updateDowntimeEvent(id: string, event: Partial<InsertDowntimeEvent>): Promise<DowntimeEvent | undefined>;
@@ -302,6 +315,46 @@ export class DatabaseStorage implements IStorage {
     }
     
     return await query;
+  }
+
+  async getDowntimeEventsEnriched(filters: {
+    processId?: string;
+    nodeId?: string;
+    startDate?: string;
+    endDate?: string;
+  }): Promise<Array<{
+    processName: string;
+    nodeName: string;
+    stopTime: Date;
+    downReason: string | null;
+    startTime: Date | null;
+    startReason: string | null;
+  }>> {
+    const filterStart = filters.startDate ? new Date(filters.startDate) : null;
+    const filterEnd = filters.endDate ? new Date(filters.endDate + 'T23:59:59.999Z') : null;
+
+    const conditions: any[] = [];
+    if (filters.processId) conditions.push(eq(downtimeEvents.processId, filters.processId));
+    if (filters.nodeId) conditions.push(eq(downtimeEvents.nodeId, filters.nodeId));
+    if (filterStart) conditions.push(gte(downtimeEvents.startTime, filterStart));
+    if (filterEnd) conditions.push(lte(downtimeEvents.startTime, filterEnd));
+
+    return await db
+      .select({
+        processName: processes.name,
+        nodeName: nodes.name,
+        stopTime: downtimeEvents.startTime,
+        downReason: downtimeReasons.label,
+        startTime: downtimeEvents.endTime,
+        startReason: uptimeReasons.label,
+      })
+      .from(downtimeEvents)
+      .innerJoin(nodes, eq(downtimeEvents.nodeId, nodes.id))
+      .innerJoin(processes, eq(downtimeEvents.processId, processes.id))
+      .leftJoin(downtimeReasons, eq(downtimeEvents.reasonId, downtimeReasons.id))
+      .leftJoin(uptimeReasons, eq(downtimeEvents.uptimeReasonId, uptimeReasons.id))
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(desc(downtimeEvents.startTime));
   }
 
   async getActiveDowntimeEvent(nodeId: string): Promise<DowntimeEvent | undefined> {

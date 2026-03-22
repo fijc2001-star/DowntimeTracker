@@ -238,3 +238,24 @@ export async function getDowntimeStatsByNode(processId: string, startDate?: stri
   const queryString = params.toString() ? `?${params}` : '';
   return fetchAPI<{ nodeId: string; nodeName: string; totalDuration: number }[]>(`/api/analytics/downtime-stats-by-node/${processId}${queryString}`);
 }
+
+export async function exportDowntimeEvents(params: {
+  processId?: string;
+  nodeId?: string;
+  startDate?: string;
+  endDate?: string;
+}): Promise<Array<{
+  processName: string;
+  nodeName: string;
+  stopTime: string;
+  downReason: string | null;
+  startTime: string | null;
+  startReason: string | null;
+}>> {
+  const qs = new URLSearchParams();
+  if (params.processId) qs.append('processId', params.processId);
+  if (params.nodeId) qs.append('nodeId', params.nodeId);
+  if (params.startDate) qs.append('startDate', params.startDate);
+  if (params.endDate) qs.append('endDate', params.endDate);
+  return fetchAPI(`/api/downtime-events/export?${qs.toString()}`);
+}
