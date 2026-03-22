@@ -156,6 +156,7 @@ export async function registerRoutes(
     try {
       const userId = getUserId(req);
       const processId = req.query.processId as string | undefined;
+      const includeInactive = req.query.includeInactive === 'true';
       
       let nodes;
       if (processId) {
@@ -165,7 +166,7 @@ export async function registerRoutes(
         }
         nodes = await storage.getNodesByProcess(processId);
       } else {
-        nodes = await storage.getUserAccessibleNodes(userId);
+        nodes = await storage.getUserAccessibleNodes(userId, includeInactive);
       }
       
       // Add role and status information for each node

@@ -62,8 +62,12 @@ export async function deleteProcess(id: string) {
 }
 
 // Node API
-export async function getNodes(processId?: string) {
-  const url = processId ? `/api/nodes?processId=${processId}` : '/api/nodes';
+export async function getNodes(processId?: string, includeInactive?: boolean) {
+  const params = new URLSearchParams();
+  if (processId) params.set('processId', processId);
+  if (includeInactive) params.set('includeInactive', 'true');
+  const query = params.toString();
+  const url = query ? `/api/nodes?${query}` : '/api/nodes';
   return fetchAPI<(Node & { userRole: 'owner' | 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null })[]>(url);
 }
 
