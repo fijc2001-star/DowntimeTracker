@@ -70,7 +70,7 @@ export interface IStorage {
   hasProcessAccess(userId: string, processId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean>;
   hasNodeAccess(userId: string, nodeId: string, requiredRole?: 'admin' | 'operator'): Promise<boolean>;
   getUserAccessibleProcesses(userId: string): Promise<Process[]>;
-  getUserAccessibleNodes(userId: string, includeInactive?: boolean): Promise<Node[]>;
+  getUserAccessibleNodes(userId: string): Promise<Node[]>;
   getUserOwnedProcesses(userId: string): Promise<Process[]>;
   getUserAssignmentsWithDetails(userId: string): Promise<{
     id: string;
@@ -596,7 +596,7 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  async getUserAccessibleNodes(userId: string, includeInactive = false): Promise<Node[]> {
+  async getUserAccessibleNodes(userId: string): Promise<Node[]> {
     // Get all permissions for this user
     const perms = await this.getUserPermissions(userId);
     
@@ -608,18 +608,12 @@ export class DatabaseStorage implements IStorage {
     
     const nodesByProcess = processPerms.length > 0
       ? await db.select().from(nodes)
-          .where(includeInactive
-            ? inArray(nodes.processId, processPerms)
-            : and(inArray(nodes.processId, processPerms), eq(nodes.isActive, true))
-          )
+          .where(and(inArray(nodes.processId, processPerms), eq(nodes.isActive, true)))
       : [];
     
     const directNodes = directNodePerms.length > 0
       ? await db.select().from(nodes)
-          .where(includeInactive
-            ? inArray(nodes.id, directNodePerms)
-            : and(inArray(nodes.id, directNodePerms), eq(nodes.isActive, true))
-          )
+          .where(and(inArray(nodes.id, directNodePerms), eq(nodes.isActive, true)))
       : [];
     
     // Merge and deduplicate
@@ -861,11 +855,17 @@ export class DatabaseStorage implements IStorage {
     
     // Fetch both sets
     const directNodes = directNodeIds.length > 0 
-      ? await db.select().from(nodes).where(inArray(nodes.id, directNodeIds))
+      ? await db.select().from(nodes).where(and(
+          inArray(nodes.id, directNodeIds),
+          eq(nodes.isActive, true)
+        ))
       : [];
     
     const processNodes = adminProcessIds.length > 0
-      ? await db.select().from(nodes).where(inArray(nodes.processId, adminProcessIds))
+      ? await db.select().from(nodes).where(and(
+          inArray(nodes.processId, adminProcessIds),
+          eq(nodes.isActive, true)
+        ))
       : [];
     
     // Merge and deduplicate

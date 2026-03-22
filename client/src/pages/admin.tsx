@@ -1009,7 +1009,7 @@ function UptimeReasonsSection() {
 export default function AdminPage() {
   const { data: adminProcesses = [] } = useAdminProcesses();
   const { data: allProcesses = [] } = useProcesses();
-  const { data: allNodes = [] } = useNodes(undefined, true);
+  const { data: allNodes = [] } = useNodes();
   const createProcess = useCreateProcess();
   const createNode = useCreateNode();
   const updateProcess = useUpdateProcess();
@@ -1035,7 +1035,7 @@ export default function AdminPage() {
   const [procDesc, setProcDesc] = React.useState('');
   const [nodeName, setNodeName] = React.useState('');
   const [nodeProcId, setNodeProcId] = React.useState('');
-  const [nodeIsActive, setNodeIsActive] = React.useState(true);
+  const [nodeInitialStatus, setNodeInitialStatus] = React.useState<'running' | 'stopped'>('running');
   
   // Edit state
   const [editingProcessId, setEditingProcessId] = React.useState('');
@@ -1060,13 +1060,13 @@ export default function AdminPage() {
 
   const handleAddNode = () => {
     createNode.mutate(
-      { name: nodeName, processId: nodeProcId, isActive: nodeIsActive },
+      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus } as any,
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node created successfully' });
           setNodeName('');
           setNodeProcId('');
-          setNodeIsActive(true);
+          setNodeInitialStatus('running');
           setNewNodeOpen(false);
         },
         onError: () => {
@@ -1306,15 +1306,15 @@ export default function AdminPage() {
                 <div className="space-y-2">
                   <Label>Initial Status</Label>
                   <Select
-                    value={nodeIsActive ? 'active' : 'inactive'}
-                    onValueChange={v => setNodeIsActive(v === 'active')}
+                    value={nodeInitialStatus}
+                    onValueChange={v => setNodeInitialStatus(v as 'running' | 'stopped')}
                   >
                     <SelectTrigger data-testid="select-node-initial-status">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="running">Running</SelectItem>
+                      <SelectItem value="stopped">Stopped</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1334,7 +1334,6 @@ export default function AdminPage() {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Parent Process</TableHead>
-              <TableHead>Active</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -1342,7 +1341,7 @@ export default function AdminPage() {
           <TableBody>
             {adminNodes.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No nodes you have admin access to. Add nodes to track equipment.
                 </TableCell>
               </TableRow>
@@ -1350,15 +1349,10 @@ export default function AdminPage() {
               adminNodes.map(n => {
                 const process = allProcesses.find(p => p.id === n.processId);
                 return (
-                  <TableRow key={n.id} className={!n.isActive ? 'opacity-60' : ''} data-testid={`row-node-${n.id}`}>
+                  <TableRow key={n.id} data-testid={`row-node-${n.id}`}>
                     <TableCell className="font-mono text-xs">{n.id.substring(0, 8)}...</TableCell>
                     <TableCell className="font-medium">{n.name}</TableCell>
                     <TableCell>{process?.name || 'Unknown'}</TableCell>
-                    <TableCell>
-                      <Badge variant={n.isActive ? 'default' : 'secondary'}>
-                        {n.isActive ? 'Active' : 'Inactive'}
-                      </Badge>
-                    </TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
                         n.status === 'down' 

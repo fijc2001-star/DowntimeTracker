@@ -156,7 +156,6 @@ export async function registerRoutes(
     try {
       const userId = getUserId(req);
       const processId = req.query.processId as string | undefined;
-      const includeInactive = req.query.includeInactive === 'true';
       
       let nodes;
       if (processId) {
@@ -166,7 +165,7 @@ export async function registerRoutes(
         }
         nodes = await storage.getNodesByProcess(processId);
       } else {
-        nodes = await storage.getUserAccessibleNodes(userId, includeInactive);
+        nodes = await storage.getUserAccessibleNodes(userId);
       }
       
       // Add role and status information for each node
@@ -226,6 +225,7 @@ export async function registerRoutes(
   app.post("/api/nodes", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
+      const initialStatus = req.body.initialStatus as 'running' | 'stopped' | undefined;
       const data = insertNodeSchema.parse(req.body);
       
       // User must have admin access to the parent process
@@ -235,6 +235,18 @@ export async function registerRoutes(
       }
       
       const node = await storage.createNode(data, userId);
+
+      // If the node should start stopped, create an initial downtime event with no reason
+      if (initialStatus === 'stopped') {
+        await storage.createDowntimeEvent({
+          nodeId: node.id,
+          processId: node.processId,
+          startTime: new Date(),
+          reasonId: null,
+          createdBy: userId,
+        });
+      }
+
       res.status(201).json(node);
     } catch (error) {
       if (error instanceof z.ZodError) {

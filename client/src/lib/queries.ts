@@ -88,10 +88,10 @@ export function useDeleteProcess() {
 }
 
 // Node Queries
-export function useNodes(processId?: string, includeInactive?: boolean) {
+export function useNodes(processId?: string) {
   return useQuery({
-    queryKey: includeInactive ? [...queryKeys.nodes(processId), 'all'] : queryKeys.nodes(processId),
-    queryFn: () => api.getNodes(processId, includeInactive),
+    queryKey: queryKeys.nodes(processId),
+    queryFn: () => api.getNodes(processId),
   });
 }
 
