@@ -603,6 +603,8 @@ export default function Dashboard() {
                         outerRadius={140}
                         paddingAngle={2}
                         dataKey="value"
+                        label={({ percentage }) => `${percentage}%`}
+                        labelLine={{ stroke: 'hsl(var(--muted-foreground))', strokeWidth: 1 }}
                       >
                         {chartData.map((entry, index) => (
                           <Cell
