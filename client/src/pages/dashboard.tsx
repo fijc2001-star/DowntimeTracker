@@ -85,9 +85,10 @@ export default function Dashboard() {
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
       };
 
-      const headerRow = ['Process', 'Node', 'Start Date/Time', 'Stop Date/Time', 'Down Time', 'Down Reason', 'Start Reason']
+      const headerRow = ['Operator', 'Process', 'Node', 'Start Date/Time', 'Stop Date/Time', 'Down Time', 'Down Reason', 'Start Reason']
         .map(h => `"${h}"`).join(',');
       const dataRows = events.map(e => [
+        csvQuote(e.operatorName),
         csvQuote(e.processName),
         csvQuote(e.nodeName),
         csvQuote(formatLocalDateTime(e.stopTime)),

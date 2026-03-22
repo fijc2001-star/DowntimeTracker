@@ -50,6 +50,7 @@ export interface IStorage {
   }): Promise<Array<{
     processName: string;
     nodeName: string;
+    operatorName: string | null;
     stopTime: Date;
     downReason: string | null;
     startTime: Date | null;
@@ -325,11 +326,13 @@ export class DatabaseStorage implements IStorage {
   }): Promise<Array<{
     processName: string;
     nodeName: string;
+    operatorName: string | null;
     stopTime: Date;
     downReason: string | null;
     startTime: Date | null;
     startReason: string | null;
   }>> {
+    const { users } = await import("@shared/schema");
     const filterStart = filters.startDate ? new Date(filters.startDate) : null;
     const filterEnd = filters.endDate ? new Date(filters.endDate + 'T23:59:59.999Z') : null;
     const now = new Date();
@@ -338,6 +341,9 @@ export class DatabaseStorage implements IStorage {
       .select({
         processName: processes.name,
         nodeName: nodes.name,
+        operatorFirstName: users.firstName,
+        operatorLastName: users.lastName,
+        operatorEmail: users.email,
         stopTime: downtimeEvents.startTime,
         downReason: downtimeReasons.label,
         startTime: downtimeEvents.endTime,
@@ -348,6 +354,7 @@ export class DatabaseStorage implements IStorage {
       .leftJoin(processes, eq(downtimeEvents.processId, processes.id))
       .leftJoin(downtimeReasons, eq(downtimeEvents.reasonId, downtimeReasons.id))
       .leftJoin(uptimeReasons, eq(downtimeEvents.uptimeReasonId, uptimeReasons.id))
+      .leftJoin(users, eq(downtimeEvents.createdBy, users.id))
       .where(and(
         filters.processId ? eq(downtimeEvents.processId, filters.processId) : undefined,
         filters.nodeId ? eq(downtimeEvents.nodeId, filters.nodeId) : undefined,
@@ -365,7 +372,18 @@ export class DatabaseStorage implements IStorage {
         if (filterStart && eventEnd < filterStart) return false;
         if (filterEnd && eventStart > filterEnd) return false;
         return true;
-      });
+      })
+      .map(row => ({
+        processName: row.processName,
+        nodeName: row.nodeName,
+        operatorName: row.operatorFirstName && row.operatorLastName
+          ? `${row.operatorFirstName} ${row.operatorLastName}`
+          : row.operatorEmail ?? null,
+        stopTime: row.stopTime,
+        downReason: row.downReason,
+        startTime: row.startTime,
+        startReason: row.startReason,
+      }));
   }
 
   async getActiveDowntimeEvent(nodeId: string): Promise<DowntimeEvent | undefined> {

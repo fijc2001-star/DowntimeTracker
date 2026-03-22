@@ -247,6 +247,7 @@ export async function exportDowntimeEvents(params: {
 }): Promise<Array<{
   processName: string;
   nodeName: string;
+  operatorName: string | null;
   stopTime: string;
   downReason: string | null;
   startTime: string | null;
