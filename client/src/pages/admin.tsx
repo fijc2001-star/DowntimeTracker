@@ -1035,6 +1035,7 @@ export default function AdminPage() {
   const [procDesc, setProcDesc] = React.useState('');
   const [nodeName, setNodeName] = React.useState('');
   const [nodeProcId, setNodeProcId] = React.useState('');
+  const [nodeIsActive, setNodeIsActive] = React.useState(true);
   
   // Edit state
   const [editingProcessId, setEditingProcessId] = React.useState('');
@@ -1059,12 +1060,13 @@ export default function AdminPage() {
 
   const handleAddNode = () => {
     createNode.mutate(
-      { name: nodeName, processId: nodeProcId },
+      { name: nodeName, processId: nodeProcId, isActive: nodeIsActive },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node created successfully' });
           setNodeName('');
           setNodeProcId('');
+          setNodeIsActive(true);
           setNewNodeOpen(false);
         },
         onError: () => {
@@ -1298,6 +1300,21 @@ export default function AdminPage() {
                       {adminProcesses.map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Initial Status</Label>
+                  <Select
+                    value={nodeIsActive ? 'active' : 'inactive'}
+                    onValueChange={v => setNodeIsActive(v === 'active')}
+                  >
+                    <SelectTrigger data-testid="select-node-initial-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active — visible to operators</SelectItem>
+                      <SelectItem value="inactive">Inactive — hidden from operators</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
