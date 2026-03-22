@@ -1,5 +1,5 @@
 import React from 'react';
-import { useProcesses, useNodes, useDowntimeReasonsByProcess, useStartDowntime, useStopDowntime } from '@/lib/queries';
+import { useProcesses, useNodes, useDowntimeReasonsByProcess, useUptimeReasonsByProcess, useStartDowntime, useStopDowntime } from '@/lib/queries';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -42,11 +42,14 @@ function NodeOperationalPanel({
 }) {
   const { toast } = useToast();
   const { data: reasons = [] } = useDowntimeReasonsByProcess(processId);
+  const { data: uptimeReasons = [] } = useUptimeReasonsByProcess(processId);
   const startDowntime = useStartDowntime();
   const stopDowntime = useStopDowntime();
   
   const [stopDialogOpen, setStopDialogOpen] = React.useState(false);
+  const [startDialogOpen, setStartDialogOpen] = React.useState(false);
   const [selectedReason, setSelectedReason] = React.useState<string>('');
+  const [selectedUptimeReason, setSelectedUptimeReason] = React.useState<string>('');
   
   const isDown = node.status === 'down';
   const activeEvent = node.activeEvent;
@@ -77,9 +80,19 @@ function NodeOperationalPanel({
     }
   };
 
-  const handleResume = async () => {
+  const handleResumeClick = () => {
+    if (uptimeReasons.length > 0) {
+      setStartDialogOpen(true);
+    } else {
+      handleResume();
+    }
+  };
+
+  const handleResume = async (uptimeReasonId?: string) => {
     try {
-      await stopDowntime.mutateAsync({ nodeId: node.id });
+      await stopDowntime.mutateAsync({ nodeId: node.id, uptimeReasonId });
+      setStartDialogOpen(false);
+      setSelectedUptimeReason('');
       toast({
         title: 'Production Resumed',
         description: `${node.name} is now running.`,
@@ -137,7 +150,7 @@ function NodeOperationalPanel({
               <Button 
                 size="lg" 
                 className="flex-1 h-24 text-2xl font-bold bg-success hover:bg-success/90 text-white shadow-lg transition-all hover:scale-[1.02]"
-                onClick={handleResume}
+                onClick={handleResumeClick}
                 disabled={stopDowntime.isPending}
                 data-testid="button-start"
               >
@@ -202,6 +215,45 @@ function NodeOperationalPanel({
               >
                 {startDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
                 Stop Production
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={startDialogOpen} onOpenChange={(open) => { setStartDialogOpen(open); if (!open) setSelectedUptimeReason(''); }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Resume Production</DialogTitle>
+              <DialogDescription>
+                Select the reason for restarting this machine.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <Select value={selectedUptimeReason} onValueChange={setSelectedUptimeReason}>
+                <SelectTrigger data-testid="select-uptime-reason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  {uptimeReasons.map(reason => (
+                    <SelectItem key={reason.id} value={reason.id} data-testid={`option-uptime-reason-${reason.id}`}>
+                      {reason.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setStartDialogOpen(false)} data-testid="button-cancel-start">
+                Cancel
+              </Button>
+              <Button
+                className="bg-success hover:bg-success/90 text-white"
+                onClick={() => handleResume(selectedUptimeReason || undefined)}
+                disabled={!selectedUptimeReason || stopDowntime.isPending}
+                data-testid="button-confirm-start"
+              >
+                {stopDowntime.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                Resume Production
               </Button>
             </DialogFooter>
           </DialogContent>
