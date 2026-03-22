@@ -663,9 +663,9 @@ export default function HelpPage() {
                   The colour of the percentage changes based on severity:
                 </p>
                 <ul className="space-y-1 pl-1">
-                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block shrink-0" /><span>Below 20 % — normal operating range</span></li>
-                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400 inline-block shrink-0" /><span>20 – 50 % — caution, elevated downtime</span></li>
-                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-destructive inline-block shrink-0" /><span>50 % or above — critical, more than half of available time lost</span></li>
+                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block shrink-0" /><span>Below 20 % — normal, acceptable operating range (shown in orange)</span></li>
+                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400 inline-block shrink-0" /><span>20 – 50 % — caution, elevated downtime (shown in yellow)</span></li>
+                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-destructive inline-block shrink-0" /><span>50 % or above — critical, more than half of available time lost (shown in red)</span></li>
                 </ul>
                 <p>
                   The effective date range used for the calculation is shown below the percentage. For process-level analysis, only <strong>active nodes</strong> are counted in both the numerator and denominator so inactive machines do not skew the result.
@@ -730,7 +730,7 @@ export default function HelpPage() {
               The exported rows match the same date-range filter applied to the chart — events that overlap the selected period are included. When a date filter is active, the <strong>Down Time</strong> column is capped to the filter window, so it shows only the downtime that fell within the selected period rather than the full event duration.
             </Callout>
             <Callout type="success">
-              The CSV filename automatically encodes the date range (e.g. <code>yahooProcess_2026-03-01_2026-03-22.csv</code>). If you did not set a date filter, the dates are derived from the earliest and latest events in the export.
+              The CSV filename automatically encodes the date range (e.g. <code>downtime-log-yahooProcess-2026-03-01-to-2026-03-22.csv</code>). If you did not set a date filter, the dates are derived from the earliest and latest events in the export.
             </Callout>
           </section>
 
