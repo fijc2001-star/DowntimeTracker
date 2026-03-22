@@ -73,10 +73,17 @@ export default function Dashboard() {
         endDate: formatDateForApi(endDate),
       });
 
-      const effectiveEndFallback = endDate ? new Date(new Date(endDate).setHours(23, 59, 59, 999)) : new Date();
+      const filterStartCap = startDate ? new Date(new Date(startDate).setHours(0, 0, 0, 0)) : null;
+      const filterEndCap = endDate ? new Date(new Date(endDate).setHours(23, 59, 59, 999)) : null;
+      const hasFilter = filterStartCap !== null || filterEndCap !== null;
       const formatDowntime = (stopTime: string, startTime: string | null): string => {
-        const endMs = startTime ? new Date(startTime).getTime() : effectiveEndFallback.getTime();
-        const ms = endMs - new Date(stopTime).getTime();
+        let startMs = new Date(stopTime).getTime();
+        let endMs = startTime ? new Date(startTime).getTime() : (filterEndCap ?? new Date()).getTime();
+        if (hasFilter) {
+          if (filterStartCap && startMs < filterStartCap.getTime()) startMs = filterStartCap.getTime();
+          if (filterEndCap && endMs > filterEndCap.getTime()) endMs = filterEndCap.getTime();
+        }
+        const ms = endMs - startMs;
         if (ms <= 0) return '';
         const totalSec = Math.floor(ms / 1000);
         const h = Math.floor(totalSec / 3600);
