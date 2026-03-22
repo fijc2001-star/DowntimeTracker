@@ -332,14 +332,13 @@ export class DatabaseStorage implements IStorage {
   }>> {
     const filterStart = filters.startDate ? new Date(filters.startDate) : null;
     const filterEnd = filters.endDate ? new Date(filters.endDate + 'T23:59:59.999Z') : null;
+    const now = new Date();
 
-    const conditions: any[] = [];
-    if (filters.processId) conditions.push(eq(downtimeEvents.processId, filters.processId));
-    if (filters.nodeId) conditions.push(eq(downtimeEvents.nodeId, filters.nodeId));
-    if (filterStart) conditions.push(gte(downtimeEvents.startTime, filterStart));
-    if (filterEnd) conditions.push(lte(downtimeEvents.startTime, filterEnd));
+    const entityConditions: any[] = [];
+    if (filters.processId) entityConditions.push(eq(downtimeEvents.processId, filters.processId));
+    if (filters.nodeId) entityConditions.push(eq(downtimeEvents.nodeId, filters.nodeId));
 
-    return await db
+    const rows = await db
       .select({
         processName: processes.name,
         nodeName: nodes.name,
@@ -353,8 +352,18 @@ export class DatabaseStorage implements IStorage {
       .innerJoin(processes, eq(downtimeEvents.processId, processes.id))
       .leftJoin(downtimeReasons, eq(downtimeEvents.reasonId, downtimeReasons.id))
       .leftJoin(uptimeReasons, eq(downtimeEvents.uptimeReasonId, uptimeReasons.id))
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .where(entityConditions.length > 0 ? and(...entityConditions) : undefined)
       .orderBy(desc(downtimeEvents.startTime));
+
+    if (!filterStart && !filterEnd) return rows;
+
+    return rows.filter(row => {
+      const eventStart = new Date(row.stopTime);
+      const eventEnd = row.startTime ? new Date(row.startTime) : now;
+      if (filterStart && eventEnd < filterStart) return false;
+      if (filterEnd && eventStart > filterEnd) return false;
+      return true;
+    });
   }
 
   async getActiveDowntimeEvent(nodeId: string): Promise<DowntimeEvent | undefined> {

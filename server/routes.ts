@@ -515,6 +515,10 @@ export async function registerRoutes(
         return res.status(400).json({ message: "processId or nodeId is required" });
       }
 
+      if (processId && nodeId) {
+        return res.status(400).json({ message: "processId and nodeId are mutually exclusive" });
+      }
+
       if (processId) {
         const hasAccess = await storage.hasProcessAccess(userId, processId);
         if (!hasAccess) return res.status(403).json({ message: "Access denied" });
