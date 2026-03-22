@@ -542,7 +542,7 @@ export default function Dashboard() {
                           className="text-sm px-3 py-1 data-[state=on]:bg-background data-[state=on]:shadow-sm"
                           data-testid="toggle-by-reason"
                         >
-                          By Reason
+                          By Down Time Reason
                         </ToggleGroupItem>
                         <ToggleGroupItem
                           value="node"
