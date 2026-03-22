@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   LogIn, Layers, ShieldCheck, Activity, Settings, BarChart3, Trash2,
   ChevronRight, AlertCircle, CheckCircle2, Info, Crown, UserCog, User,
-  PlayCircle, StopCircle, Clock, Filter, BookOpen, ArrowUp
+  PlayCircle, StopCircle, Clock, Filter, BookOpen, ArrowUp, Download
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -93,7 +93,7 @@ function PermissionTable() {
     { action: 'View Analytics Dashboard', owner: true, admin: true, operator: false },
     { action: 'Create and edit processes', owner: true, admin: true, operator: false },
     { action: 'Create and edit nodes', owner: true, admin: true, operator: false },
-    { action: 'Manage downtime reasons', owner: true, admin: true, operator: false },
+    { action: 'Manage downtime & uptime reasons', owner: true, admin: true, operator: false },
     { action: 'Grant / revoke permissions to others', owner: true, admin: false, operator: false },
     { action: 'Delete a process permanently', owner: true, admin: false, operator: false },
   ];
@@ -297,9 +297,12 @@ export default function HelpPage() {
               Expand your process and click <strong>Add Node</strong> to add each individual machine or piece of equipment that belongs to this production line.
             </Step>
             <Step number={3} title="Create Downtime Reasons">
-              Open the <strong>Downtime Reasons</strong> section and define the failure categories your operators will choose from (e.g. "Mechanical failure", "Planned maintenance", "Material shortage").
+              Open the <strong>Downtime Reasons</strong> section and define the failure categories your operators will choose from when stopping a node (e.g. "Mechanical failure", "Planned maintenance", "Material shortage").
             </Step>
-            <Step number={4} title="Invite your team">
+            <Step number={4} title="Create Uptime Reasons">
+              Open the <strong>Uptime Reasons</strong> section and define the categories operators will select when restarting a node (e.g. "Repair complete", "Material restocked", "Reset"). Both reason lists must have at least one active entry for operators to start and stop downtime events.
+            </Step>
+            <Step number={5} title="Invite your team">
               Open the <strong>Authorization</strong> section to grant other registered users access to your processes and nodes with their appropriate roles.
             </Step>
           </section>
@@ -348,14 +351,19 @@ export default function HelpPage() {
                   <Badge variant="outline" className="text-xs">Time-stamped Record</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed">
-                  A logged record of a period when a node was not operational. Every event has a start time, an end time (once resolved), and a reason. Historical events are preserved indefinitely for analytics purposes.
+                  A logged record of a period when a node was not operational. Every event captures a start time and a downtime reason when the node stops, and an end time and an optional uptime reason when it restarts. Historical events are preserved indefinitely for analytics purposes.
                 </p>
               </div>
             </div>
 
             <SubHeading>Downtime Reasons</SubHeading>
             <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Each process has its own customisable list of reasons that operators select when starting a downtime event. Reasons are managed by admins and owners in the Administration page. Inactive reasons are hidden from operators but the historical data using those reasons is kept intact.
+              Each process has its own customisable list of downtime reasons that operators select when <strong>stopping</strong> a node. These describe why the machine went down. Reasons are managed by admins and owners in the Administration page. Inactive reasons are hidden from operators but historical data using those reasons is kept intact.
+            </p>
+
+            <SubHeading>Uptime Reasons</SubHeading>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              Each process also has a separate list of uptime reasons that operators select when <strong>restarting</strong> a node. These describe how the issue was resolved (e.g. "Repair complete", "Reset"). Like downtime reasons, they are process-scoped and managed by admins and owners. At least one active uptime reason must exist for operators to be able to restart a node.
             </p>
 
             <Callout type="info">
@@ -461,14 +469,21 @@ export default function HelpPage() {
 
             <SubHeading>Stopping (Resolving) a Downtime Event</SubHeading>
             <Step number={1} title="Locate the down node">
-              Find the node showing as <span className="font-medium text-red-500">Down</span>. You can see how long it has been down and the reason.
+              Find the node showing as <span className="font-medium text-red-500">Down</span>. You can see how long it has been down and the downtime reason.
             </Step>
-            <Step number={2} title="Mark as resolved">
-              Click the resolve button on the node card.
+            <Step number={2} title="Click the restart button">
+              Click the resolve/restart button on the node card to open the restart dialog.
             </Step>
-            <Step number={3} title="Confirm">
-              The event is closed with the current timestamp as the end time. The node immediately switches back to <span className="font-medium text-green-600 dark:text-green-400">Running</span>.
+            <Step number={3} title="Select an uptime reason">
+              Choose the appropriate restart category from the list configured for that process by your admin (e.g. "Repair complete", "Reset").
             </Step>
+            <Step number={4} title="Confirm">
+              The event is closed with the current timestamp as the end time and the selected uptime reason recorded. The node immediately switches back to <span className="font-medium text-green-600 dark:text-green-400">Running</span>.
+            </Step>
+
+            <Callout type="warning">
+              A node <strong>cannot be stopped</strong> if the process has no active downtime reasons, and <strong>cannot be restarted</strong> if the process has no active uptime reasons. Ask your admin to add at least one of each before operators can log events.
+            </Callout>
 
             <Callout type="success">
               Both the start and stop times are recorded automatically by the server — not the user's device — so the timestamps are always accurate regardless of which device is used.
@@ -480,7 +495,7 @@ export default function HelpPage() {
             <SectionHeading id="administration" icon={Settings} title="Administration" subtitle="Managing processes, nodes, reasons, and team access" />
 
             <p className="text-sm text-muted-foreground leading-relaxed mb-6">
-              The <strong>Administration</strong> page is your control centre for setting up and maintaining the system. It has four collapsible sections, each focused on a different area.
+              The <strong>Administration</strong> page is your control centre for setting up and maintaining the system. It has five collapsible sections, each focused on a different area.
             </p>
 
             {[
@@ -499,14 +514,29 @@ export default function HelpPage() {
                 ],
               },
               {
-                icon: Activity,
+                icon: StopCircle,
                 title: 'Downtime Reasons',
                 roles: ['owner', 'admin'] as Array<'owner' | 'admin' | 'operator'>,
                 items: [
-                  'Each process has its own separate list of reasons.',
+                  'Each process has its own separate list of downtime reasons.',
+                  'Operators select a downtime reason when stopping (marking down) a node.',
                   'Create new reasons with a custom label (e.g. "Power failure", "Scheduled maintenance").',
                   'Toggle reasons Active or Inactive. Inactive reasons are hidden from operators but past events are preserved.',
                   'Delete a reason permanently. Past events that used it will lose the reason label but remain in history.',
+                  'At least one active downtime reason is required for operators to stop a node.',
+                ],
+              },
+              {
+                icon: PlayCircle,
+                title: 'Uptime Reasons',
+                roles: ['owner', 'admin'] as Array<'owner' | 'admin' | 'operator'>,
+                items: [
+                  'Each process has its own separate list of uptime reasons.',
+                  'Operators select an uptime reason when restarting (marking back online) a node.',
+                  'Create new reasons with a custom label (e.g. "Repair complete", "Material restocked", "Reset").',
+                  'Toggle reasons Active or Inactive. Inactive reasons are hidden from operators but past events are preserved.',
+                  'Delete a reason permanently. Past events that used it will lose the reason label but remain in history.',
+                  'At least one active uptime reason is required for operators to restart a node.',
                 ],
               },
               {
@@ -636,6 +666,17 @@ export default function HelpPage() {
                 </li>
               ))}
             </ul>
+
+            <SubHeading>Exporting Data</SubHeading>
+            <div className="flex items-start gap-3 rounded-lg border p-4 mb-4">
+              <Download className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Once a process or node is selected and the chart has data, an <strong>Export CSV</strong> button appears in the chart header. Clicking it downloads a <code>.csv</code> file of all raw downtime events matching the current filters, including: Process, Node, Stop Date/Time, Down Reason, Start Date/Time, and Start Reason. The file opens correctly in Excel, Google Sheets, and other spreadsheet tools.
+              </p>
+            </div>
+            <Callout type="info">
+              The exported rows match the same date-range filter applied to the chart — events that overlap the selected period are included, consistent with the analytics view.
+            </Callout>
           </section>
 
           {/* ── Data & Deletion Rules ── */}
@@ -656,7 +697,7 @@ export default function HelpPage() {
                 {
                   action: 'Delete a Process',
                   role: 'owner' as const,
-                  removes: ['All nodes in the process', 'All downtime events across all nodes', 'All downtime reasons', 'All permission records for the process and its nodes'],
+                  removes: ['All nodes in the process', 'All downtime events across all nodes', 'All downtime reasons', 'All uptime reasons', 'All permission records for the process and its nodes'],
                 },
                 {
                   action: 'Delete a Node',
@@ -666,7 +707,12 @@ export default function HelpPage() {
                 {
                   action: 'Delete a Downtime Reason',
                   role: 'admin' as const,
-                  removes: ['The reason label is removed from past events, but the events themselves are preserved — the duration and timestamps remain in the history, just without a reason label.'],
+                  removes: ['The reason label is removed from past events, but the events themselves are preserved — the duration and timestamps remain in the history, just without a downtime reason label.'],
+                },
+                {
+                  action: 'Delete an Uptime Reason',
+                  role: 'admin' as const,
+                  removes: ['The uptime reason label is removed from past events, but the events themselves are preserved — the duration and timestamps remain in the history, just without an uptime reason label.'],
                 },
               ].map(({ action, role, removes }) => (
                 <Card key={action} className="border">
