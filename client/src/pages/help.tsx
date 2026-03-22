@@ -5,7 +5,7 @@ import { Separator } from '@/components/ui/separator';
 import {
   LogIn, Layers, ShieldCheck, Activity, Settings, BarChart3, Trash2,
   ChevronRight, AlertCircle, CheckCircle2, Info, Crown, UserCog, User,
-  PlayCircle, StopCircle, Clock, Filter, BookOpen, ArrowUp, Download
+  PlayCircle, StopCircle, Clock, Filter, BookOpen, ArrowUp, Download, TrendingDown
 } from 'lucide-react';
 
 const SECTIONS = [
@@ -628,9 +628,9 @@ export default function HelpPage() {
             <SubHeading>Breakdown Types</SubHeading>
             <div className="grid sm:grid-cols-2 gap-3 mb-6">
               <div className="rounded-lg border p-4">
-                <p className="font-semibold text-sm mb-1">By Reason</p>
+                <p className="font-semibold text-sm mb-1">By Down Time Reason</p>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Shows a pie chart where each slice represents a failure category. Instantly see which type of failure is consuming the most production time.
+                  Shows a pie chart where each slice represents a downtime failure category. Instantly see which type of failure is consuming the most production time.
                 </p>
               </div>
               <div className="rounded-lg border p-4">
@@ -652,11 +652,32 @@ export default function HelpPage() {
               </p>
             </div>
 
+            <SubHeading>Downtime % KPI Card</SubHeading>
+            <div className="flex items-start gap-3 rounded-lg border p-4 mb-4">
+              <TrendingDown className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+              <div className="text-sm text-muted-foreground leading-relaxed space-y-2">
+                <p>
+                  When a process or node is selected, a <strong>Downtime Rate</strong> card appears above the chart. It shows the percentage of available machine-time that was lost to downtime within the selected period.
+                </p>
+                <p>
+                  The colour of the percentage changes based on severity:
+                </p>
+                <ul className="space-y-1 pl-1">
+                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary inline-block shrink-0" /><span>Below 20 % — normal operating range</span></li>
+                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-yellow-400 inline-block shrink-0" /><span>20 – 50 % — caution, elevated downtime</span></li>
+                  <li className="flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-destructive inline-block shrink-0" /><span>50 % or above — critical, more than half of available time lost</span></li>
+                </ul>
+                <p>
+                  The effective date range used for the calculation is shown below the percentage. For process-level analysis, only <strong>active nodes</strong> are counted in both the numerator and denominator so inactive machines do not skew the result.
+                </p>
+              </div>
+            </div>
+
             <SubHeading>Reading the Chart</SubHeading>
             <ul className="space-y-2 mb-4">
               {[
-                'Each pie slice is labelled with its reason or node name.',
-                'The legend below the chart shows each item, its total duration in human-readable format (e.g. "2h 30m"), and its percentage of total downtime.',
+                'Each pie slice shows its percentage of total downtime directly on the slice.',
+                'The legend below the chart shows each reason or node name along with its total duration (e.g. "2h 30m") and percentage — names are shown in the legend only, not repeated on the slices.',
                 'A summary card shows the combined total downtime across all events in the selected scope and date range.',
                 'Hovering over a slice shows a tooltip with exact duration and percentage.',
               ].map((item, i) => (
@@ -670,12 +691,46 @@ export default function HelpPage() {
             <SubHeading>Exporting Data</SubHeading>
             <div className="flex items-start gap-3 rounded-lg border p-4 mb-4">
               <Download className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-              <p className="text-sm text-muted-foreground leading-relaxed">
-                Once a process or node is selected and the chart has data, an <strong>Export CSV</strong> button appears in the chart header. Clicking it downloads a <code>.csv</code> file of all raw downtime events matching the current filters, including: Process, Node, Stop Date/Time, Down Reason, Start Date/Time, and Start Reason. The file opens correctly in Excel, Google Sheets, and other spreadsheet tools.
-              </p>
+              <div className="text-sm text-muted-foreground leading-relaxed space-y-2">
+                <p>
+                  Once a process or node is selected and the chart has data, an <strong>Export CSV</strong> button appears in the chart header. The file opens correctly in Excel, Google Sheets, and other spreadsheet tools.
+                </p>
+                <p>The CSV contains one row per downtime event with these columns in order:</p>
+                <div className="rounded-md border overflow-hidden text-xs mt-1">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-muted/50 border-b">
+                        <th className="text-left px-3 py-2 font-semibold">Column</th>
+                        <th className="text-left px-3 py-2 font-semibold">Description</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {[
+                        ['Operator Email', 'Email address of the user who stopped the machine'],
+                        ['Operator Name', 'Full name of that user (if available)'],
+                        ['Process', 'Name of the production process'],
+                        ['Node', 'Name of the individual machine'],
+                        ['Start Date/Time', 'When the machine went down (downtime began)'],
+                        ['Stop Date/Time', 'When the machine restarted (blank if still down)'],
+                        ['Down Time', 'Duration of the downtime in HH:MM:SS'],
+                        ['Down Reason', 'Failure category selected when the machine was stopped'],
+                        ['Start Reason', 'Recovery category selected when the machine restarted'],
+                      ].map(([col, desc], i) => (
+                        <tr key={i} className={`border-b last:border-0 ${i % 2 === 0 ? '' : 'bg-muted/20'}`}>
+                          <td className="px-3 py-2 font-medium text-foreground/80 whitespace-nowrap">{col}</td>
+                          <td className="px-3 py-2 text-muted-foreground">{desc}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
             <Callout type="info">
-              The exported rows match the same date-range filter applied to the chart — events that overlap the selected period are included, consistent with the analytics view.
+              The exported rows match the same date-range filter applied to the chart — events that overlap the selected period are included. When a date filter is active, the <strong>Down Time</strong> column is capped to the filter window, so it shows only the downtime that fell within the selected period rather than the full event duration.
+            </Callout>
+            <Callout type="success">
+              The CSV filename automatically encodes the date range (e.g. <code>yahooProcess_2026-03-01_2026-03-22.csv</code>). If you did not set a date filter, the dates are derived from the earliest and latest events in the export.
             </Callout>
           </section>
 
