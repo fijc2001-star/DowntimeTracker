@@ -50,6 +50,7 @@ export interface IStorage {
   }): Promise<Array<{
     processName: string;
     nodeName: string;
+    operatorEmail: string | null;
     operatorName: string | null;
     stopTime: Date;
     downReason: string | null;
@@ -326,6 +327,7 @@ export class DatabaseStorage implements IStorage {
   }): Promise<Array<{
     processName: string;
     nodeName: string;
+    operatorEmail: string | null;
     operatorName: string | null;
     stopTime: Date;
     downReason: string | null;
@@ -376,9 +378,10 @@ export class DatabaseStorage implements IStorage {
       .map(row => ({
         processName: row.processName,
         nodeName: row.nodeName,
+        operatorEmail: row.operatorEmail ?? null,
         operatorName: row.operatorFirstName && row.operatorLastName
           ? `${row.operatorFirstName} ${row.operatorLastName}`
-          : row.operatorEmail ?? null,
+          : null,
         stopTime: row.stopTime,
         downReason: row.downReason,
         startTime: row.startTime,
