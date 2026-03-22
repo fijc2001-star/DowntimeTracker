@@ -73,14 +73,26 @@ export default function Dashboard() {
         endDate: formatDateForApi(endDate),
       });
 
-      const headerRow = ['Process', 'Node', 'Stop Date/Time', 'Down Reason', 'Start Date/Time', 'Start Reason']
+      const formatDowntime = (stopTime: string, startTime: string | null): string => {
+        if (!startTime) return '';
+        const ms = new Date(startTime).getTime() - new Date(stopTime).getTime();
+        if (ms <= 0) return '';
+        const totalSec = Math.floor(ms / 1000);
+        const h = Math.floor(totalSec / 3600);
+        const m = Math.floor((totalSec % 3600) / 60);
+        const s = totalSec % 60;
+        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      };
+
+      const headerRow = ['Process', 'Node', 'Start Date/Time', 'Stop Date/Time', 'Down Time', 'Down Reason', 'Start Reason']
         .map(h => `"${h}"`).join(',');
       const dataRows = events.map(e => [
         csvQuote(e.processName),
         csvQuote(e.nodeName),
         csvQuote(formatLocalDateTime(e.stopTime)),
-        csvQuote(e.downReason),
         csvQuote(e.startTime ? formatLocalDateTime(e.startTime) : null),
+        csvQuote(formatDowntime(e.stopTime, e.startTime)),
+        csvQuote(e.downReason),
         csvQuote(e.startReason),
       ].join(','));
 
