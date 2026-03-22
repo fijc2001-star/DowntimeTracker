@@ -71,12 +71,28 @@ export default function NodeView() {
     }
   };
 
-  const handleResumeClick = () => {
-    if (uptimeReasons.length > 0) {
-      setStartDialogOpen(true);
-    } else {
-      handleResume();
+  const handleStopClick = () => {
+    if (reasons.length === 0) {
+      toast({
+        title: 'Cannot Stop Production',
+        description: 'No downtime reasons are configured for this process. Ask an admin to add at least one before stopping.',
+        variant: 'destructive',
+      });
+      return;
     }
+    setStopDialogOpen(true);
+  };
+
+  const handleResumeClick = () => {
+    if (uptimeReasons.length === 0) {
+      toast({
+        title: 'Cannot Resume Production',
+        description: 'No uptime reasons are configured for this process. Ask an admin to add at least one before resuming.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setStartDialogOpen(true);
   };
 
   const handleResume = async (uptimeReasonId?: string) => {
@@ -168,7 +184,7 @@ export default function NodeView() {
                  size="lg" 
                  variant="destructive"
                  className="flex-1 h-32 text-2xl font-bold shadow-[0_0_30px_hsl(var(--destructive)/0.3)] transition-all hover:scale-[1.02]"
-                 onClick={() => setStopDialogOpen(true)}
+                 onClick={handleStopClick}
                  disabled={startDowntime.isPending}
                  data-testid="button-stop"
                >
