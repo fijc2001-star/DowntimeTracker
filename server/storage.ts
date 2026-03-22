@@ -855,17 +855,26 @@ export class DatabaseStorage implements IStorage {
     const filterStart = startDate ? new Date(startDate) : null;
     const filterEnd = endDate ? new Date(endDate + 'T23:59:59.999Z') : null;
 
-    const whereCondition = entityType === 'process'
-      ? eq(downtimeEvents.processId, entityId)
-      : eq(downtimeEvents.nodeId, entityId);
-
-    const events = await db
-      .select({
-        startTime: downtimeEvents.startTime,
-        endTime: downtimeEvents.endTime,
-      })
-      .from(downtimeEvents)
-      .where(whereCondition);
+    // For process mode, only count events from active nodes so numerator and
+    // denominator are both scoped to active machine-time.
+    let events: { startTime: Date; endTime: Date | null }[];
+    let activeNodeCount = 1;
+    if (entityType === 'process') {
+      const activeNodeRows = await db.select({ id: nodes.id })
+        .from(nodes)
+        .where(and(eq(nodes.processId, entityId), eq(nodes.isActive, true)));
+      activeNodeCount = Math.max(activeNodeRows.length, 1);
+      const activeIds = activeNodeRows.map(n => n.id);
+      events = activeIds.length > 0
+        ? await db.select({ startTime: downtimeEvents.startTime, endTime: downtimeEvents.endTime })
+            .from(downtimeEvents)
+            .where(and(eq(downtimeEvents.processId, entityId), inArray(downtimeEvents.nodeId, activeIds)))
+        : [];
+    } else {
+      events = await db.select({ startTime: downtimeEvents.startTime, endTime: downtimeEvents.endTime })
+        .from(downtimeEvents)
+        .where(eq(downtimeEvents.nodeId, entityId));
+    }
 
     // Filter events that overlap with the window and compute total downtime
     let totalDowntimeMs = 0;
@@ -890,14 +899,7 @@ export class DatabaseStorage implements IStorage {
     const effectiveEnd = filterEnd ?? now;
     const timeframeDurationMs = Math.max(effectiveEnd.getTime() - effectiveStart.getTime(), 1);
 
-    // Node count: for process use active nodes count; for node use 1
-    let nodeCount = 1;
-    if (entityType === 'process') {
-      const activeNodes = await db.select({ id: nodes.id })
-        .from(nodes)
-        .where(and(eq(nodes.processId, entityId), eq(nodes.isActive, true)));
-      nodeCount = Math.max(activeNodes.length, 1);
-    }
+    const nodeCount = activeNodeCount;
 
     const downtimePercentage = Math.min(
       (totalDowntimeMs / (timeframeDurationMs * nodeCount)) * 100,
