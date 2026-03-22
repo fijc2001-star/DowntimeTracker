@@ -105,13 +105,19 @@ export default function Dashboard() {
         : (uniqueAdminNodes.find(n => n.id === selectedNodeId)?.name ?? 'unknown');
       const safeName = entityName.replace(/[^a-zA-Z0-9_-]/g, '-');
       const fmtDate = (d: Date) => format(d, 'yyyy-MM-dd');
-      const dateSuffix = startDate && endDate
-        ? `${fmtDate(startDate)}-to-${fmtDate(endDate)}`
-        : startDate
-          ? `from-${fmtDate(startDate)}`
-          : endDate
-            ? `to-${fmtDate(endDate)}`
-            : 'all-time';
+
+      const allDateMs = events.flatMap(e => [
+        new Date(e.stopTime).getTime(),
+        ...(e.startTime ? [new Date(e.startTime).getTime()] : []),
+      ]).filter(ms => !isNaN(ms));
+      const minEventDate = allDateMs.length ? new Date(Math.min(...allDateMs)) : null;
+      const maxEventDate = allDateMs.length ? new Date(Math.max(...allDateMs)) : null;
+
+      const effectiveStart = startDate ?? minEventDate;
+      const effectiveEnd = endDate ?? maxEventDate;
+      const dateSuffix = effectiveStart && effectiveEnd
+        ? `${fmtDate(effectiveStart)}-to-${fmtDate(effectiveEnd)}`
+        : 'all-time';
       a.href = url;
       a.download = `downtime-log-${safeName}-${dateSuffix}.csv`;
       document.body.appendChild(a);
