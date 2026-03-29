@@ -1174,7 +1174,7 @@ export default function AdminPage() {
         description="Production lines and workflows"
         icon={Settings2}
         headerAction={
-          <Dialog open={newProcessOpen} onOpenChange={setNewProcessOpen}>
+          <Dialog open={newProcessOpen} onOpenChange={open => { if (!open) { setProcName(''); setProcDesc(''); setNewProcIsActive(true); } setNewProcessOpen(open); }}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-process">
                 <Plus className="h-4 w-4 mr-2" /> Add Process
@@ -1292,7 +1292,7 @@ export default function AdminPage() {
         description="Individual machines and stations"
         icon={Settings2}
         headerAction={
-          <Dialog open={newNodeOpen} onOpenChange={setNewNodeOpen}>
+          <Dialog open={newNodeOpen} onOpenChange={open => { if (!open) { setNodeName(''); setNodeProcId(''); setNodeInitialStatus('running'); setNewNodeIsActive(true); } setNewNodeOpen(open); }}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" data-testid="button-add-node">
                 <Plus className="h-4 w-4 mr-2" /> Add Node
