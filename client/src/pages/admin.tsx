@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAdminProcesses, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason, useUptimeReasonsByProcess, useCreateUptimeReason, useUpdateUptimeReason, useDeleteUptimeReason } from '@/lib/queries';
 import type { DowntimeReason, UptimeReason } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
@@ -1040,15 +1041,18 @@ export default function AdminPage() {
   // Edit state
   const [editingProcessId, setEditingProcessId] = React.useState('');
   const [editingNodeId, setEditingNodeId] = React.useState('');
+  const [procIsActive, setProcIsActive] = React.useState(true);
+  const [nodeIsActive, setNodeIsActive] = React.useState(true);
 
   const handleAddProcess = () => {
     createProcess.mutate(
-      { name: procName, description: procDesc },
+      { name: procName, description: procDesc, isActive: procIsActive },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Process created successfully' });
           setProcName('');
           setProcDesc('');
+          setProcIsActive(true);
           setNewProcessOpen(false);
         },
         onError: () => {
@@ -1060,13 +1064,14 @@ export default function AdminPage() {
 
   const handleAddNode = () => {
     createNode.mutate(
-      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus } as any,
+      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus, isActive: nodeIsActive } as any,
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node created successfully' });
           setNodeName('');
           setNodeProcId('');
           setNodeInitialStatus('running');
+          setNodeIsActive(true);
           setNewNodeOpen(false);
         },
         onError: () => {
@@ -1076,21 +1081,23 @@ export default function AdminPage() {
     );
   };
   
-  const handleEditProcess = (process: { id: string; name: string; description?: string | null }) => {
+  const handleEditProcess = (process: { id: string; name: string; description?: string | null; isActive: boolean }) => {
     setEditingProcessId(process.id);
     setProcName(process.name);
     setProcDesc(process.description || '');
+    setProcIsActive(process.isActive);
     setEditProcessOpen(true);
   };
   
   const handleUpdateProcess = () => {
     updateProcess.mutate(
-      { id: editingProcessId, data: { name: procName, description: procDesc } },
+      { id: editingProcessId, data: { name: procName, description: procDesc, isActive: procIsActive } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Process updated successfully' });
           setProcName('');
           setProcDesc('');
+          setProcIsActive(true);
           setEditingProcessId('');
           setEditProcessOpen(false);
         },
@@ -1112,21 +1119,23 @@ export default function AdminPage() {
     });
   };
   
-  const handleEditNode = (node: { id: string; name: string; processId: string }) => {
+  const handleEditNode = (node: { id: string; name: string; processId: string; isActive: boolean }) => {
     setEditingNodeId(node.id);
     setNodeName(node.name);
     setNodeProcId(node.processId);
+    setNodeIsActive(node.isActive);
     setEditNodeOpen(true);
   };
   
   const handleUpdateNode = () => {
     updateNode.mutate(
-      { id: editingNodeId, data: { name: nodeName } },
+      { id: editingNodeId, data: { name: nodeName, isActive: nodeIsActive } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node updated successfully' });
           setNodeName('');
           setNodeProcId('');
+          setNodeIsActive(true);
           setEditingNodeId('');
           setEditNodeOpen(false);
         },
@@ -1189,6 +1198,15 @@ export default function AdminPage() {
                     placeholder="e.g. Secondary assembly unit"
                     data-testid="input-process-description"
                   />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="new-process-active"
+                    checked={procIsActive}
+                    onCheckedChange={v => setProcIsActive(!!v)}
+                    data-testid="checkbox-process-active"
+                  />
+                  <Label htmlFor="new-process-active">Active</Label>
                 </div>
               </div>
               <DialogFooter>
@@ -1317,6 +1335,15 @@ export default function AdminPage() {
                       <SelectItem value="stopped">Stopped</SelectItem>
                     </SelectContent>
                   </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="new-node-active"
+                    checked={nodeIsActive}
+                    onCheckedChange={v => setNodeIsActive(!!v)}
+                    data-testid="checkbox-node-active"
+                  />
+                  <Label htmlFor="new-node-active">Active</Label>
                 </div>
               </div>
               <DialogFooter>
@@ -1472,6 +1499,15 @@ export default function AdminPage() {
                 data-testid="input-edit-process-description"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="edit-process-active"
+                checked={procIsActive}
+                onCheckedChange={v => setProcIsActive(!!v)}
+                data-testid="checkbox-edit-process-active"
+              />
+              <Label htmlFor="edit-process-active">Active</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditProcessOpen(false)}>Cancel</Button>
@@ -1495,6 +1531,15 @@ export default function AdminPage() {
                 placeholder="e.g. CNC Machine 04"
                 data-testid="input-edit-node-name"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="edit-node-active"
+                checked={nodeIsActive}
+                onCheckedChange={v => setNodeIsActive(!!v)}
+                data-testid="checkbox-edit-node-active"
+              />
+              <Label htmlFor="edit-node-active">Active</Label>
             </div>
           </div>
           <DialogFooter>
