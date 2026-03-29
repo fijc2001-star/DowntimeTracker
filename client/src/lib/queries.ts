@@ -107,7 +107,7 @@ export function useNode(id: string) {
 export function useCreateNode() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: InsertNode) => api.createNode(data),
+    mutationFn: (data: InsertNode & { initialStatus?: 'running' | 'stopped' }) => api.createNode(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-nodes'] });

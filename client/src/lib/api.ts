@@ -71,7 +71,7 @@ export async function getNode(id: string) {
   return fetchAPI<Node & { userRole: 'owner' | 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null }>(`/api/nodes/${id}`);
 }
 
-export async function createNode(data: InsertNode) {
+export async function createNode(data: InsertNode & { initialStatus?: 'running' | 'stopped' }) {
   return fetchAPI<Node>('/api/nodes', {
     method: 'POST',
     body: JSON.stringify(data),

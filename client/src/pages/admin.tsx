@@ -1041,18 +1041,22 @@ export default function AdminPage() {
   // Edit state
   const [editingProcessId, setEditingProcessId] = React.useState('');
   const [editingNodeId, setEditingNodeId] = React.useState('');
-  const [procIsActive, setProcIsActive] = React.useState(true);
-  const [nodeIsActive, setNodeIsActive] = React.useState(true);
+  // Add-form active state (always defaults to true)
+  const [newProcIsActive, setNewProcIsActive] = React.useState(true);
+  const [newNodeIsActive, setNewNodeIsActive] = React.useState(true);
+  // Edit-form active state (initialized from entity)
+  const [editProcIsActive, setEditProcIsActive] = React.useState(true);
+  const [editNodeIsActive, setEditNodeIsActive] = React.useState(true);
 
   const handleAddProcess = () => {
     createProcess.mutate(
-      { name: procName, description: procDesc, isActive: procIsActive },
+      { name: procName, description: procDesc, isActive: newProcIsActive },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Process created successfully' });
           setProcName('');
           setProcDesc('');
-          setProcIsActive(true);
+          setNewProcIsActive(true);
           setNewProcessOpen(false);
         },
         onError: () => {
@@ -1064,14 +1068,14 @@ export default function AdminPage() {
 
   const handleAddNode = () => {
     createNode.mutate(
-      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus, isActive: nodeIsActive } as any,
+      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus, isActive: newNodeIsActive },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node created successfully' });
           setNodeName('');
           setNodeProcId('');
           setNodeInitialStatus('running');
-          setNodeIsActive(true);
+          setNewNodeIsActive(true);
           setNewNodeOpen(false);
         },
         onError: () => {
@@ -1085,19 +1089,19 @@ export default function AdminPage() {
     setEditingProcessId(process.id);
     setProcName(process.name);
     setProcDesc(process.description || '');
-    setProcIsActive(process.isActive);
+    setEditProcIsActive(process.isActive);
     setEditProcessOpen(true);
   };
   
   const handleUpdateProcess = () => {
     updateProcess.mutate(
-      { id: editingProcessId, data: { name: procName, description: procDesc, isActive: procIsActive } },
+      { id: editingProcessId, data: { name: procName, description: procDesc, isActive: editProcIsActive } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Process updated successfully' });
           setProcName('');
           setProcDesc('');
-          setProcIsActive(true);
+          setEditProcIsActive(true);
           setEditingProcessId('');
           setEditProcessOpen(false);
         },
@@ -1123,19 +1127,19 @@ export default function AdminPage() {
     setEditingNodeId(node.id);
     setNodeName(node.name);
     setNodeProcId(node.processId);
-    setNodeIsActive(node.isActive);
+    setEditNodeIsActive(node.isActive);
     setEditNodeOpen(true);
   };
   
   const handleUpdateNode = () => {
     updateNode.mutate(
-      { id: editingNodeId, data: { name: nodeName, isActive: nodeIsActive } },
+      { id: editingNodeId, data: { name: nodeName, isActive: editNodeIsActive } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node updated successfully' });
           setNodeName('');
           setNodeProcId('');
-          setNodeIsActive(true);
+          setEditNodeIsActive(true);
           setEditingNodeId('');
           setEditNodeOpen(false);
         },
@@ -1202,8 +1206,8 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="new-process-active"
-                    checked={procIsActive}
-                    onCheckedChange={v => setProcIsActive(!!v)}
+                    checked={newProcIsActive}
+                    onCheckedChange={v => setNewProcIsActive(!!v)}
                     data-testid="checkbox-process-active"
                   />
                   <Label htmlFor="new-process-active">Active</Label>
@@ -1339,8 +1343,8 @@ export default function AdminPage() {
                 <div className="flex items-center gap-2">
                   <Checkbox
                     id="new-node-active"
-                    checked={nodeIsActive}
-                    onCheckedChange={v => setNodeIsActive(!!v)}
+                    checked={newNodeIsActive}
+                    onCheckedChange={v => setNewNodeIsActive(!!v)}
                     data-testid="checkbox-node-active"
                   />
                   <Label htmlFor="new-node-active">Active</Label>
@@ -1502,8 +1506,8 @@ export default function AdminPage() {
             <div className="flex items-center gap-2">
               <Checkbox
                 id="edit-process-active"
-                checked={procIsActive}
-                onCheckedChange={v => setProcIsActive(!!v)}
+                checked={editProcIsActive}
+                onCheckedChange={v => setEditProcIsActive(!!v)}
                 data-testid="checkbox-edit-process-active"
               />
               <Label htmlFor="edit-process-active">Active</Label>
@@ -1535,8 +1539,8 @@ export default function AdminPage() {
             <div className="flex items-center gap-2">
               <Checkbox
                 id="edit-node-active"
-                checked={nodeIsActive}
-                onCheckedChange={v => setNodeIsActive(!!v)}
+                checked={editNodeIsActive}
+                onCheckedChange={v => setEditNodeIsActive(!!v)}
                 data-testid="checkbox-edit-node-active"
               />
               <Label htmlFor="edit-node-active">Active</Label>
