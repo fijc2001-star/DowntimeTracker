@@ -577,6 +577,10 @@ export async function registerRoutes(
       if (!node) {
         return res.status(404).json({ message: "Node not found" });
       }
+
+      if (!node.isActive) {
+        return res.status(400).json({ message: "Cannot start downtime on an inactive node" });
+      }
       
       const event = await storage.createDowntimeEvent({
         nodeId,
@@ -609,6 +613,16 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Check node exists and is active
+      const node = await storage.getNode(nodeId);
+      if (!node) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+
+      if (!node.isActive) {
+        return res.status(400).json({ message: "Cannot stop downtime on an inactive node" });
+      }
+
       // Find active event
       const activeEvent = await storage.getActiveDowntimeEvent(nodeId);
       if (!activeEvent) {
