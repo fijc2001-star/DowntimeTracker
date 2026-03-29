@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAdminProcesses, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason, useUptimeReasonsByProcess, useCreateUptimeReason, useUpdateUptimeReason, useDeleteUptimeReason } from '@/lib/queries';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAdminProcesses, useAdminNodes, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason, useUptimeReasonsByProcess, useCreateUptimeReason, useUpdateUptimeReason, useDeleteUptimeReason } from '@/lib/queries';
 import type { DowntimeReason, UptimeReason } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 
@@ -1008,9 +1008,8 @@ function UptimeReasonsSection() {
 }
 
 export default function AdminPage() {
-  const { data: adminProcesses = [] } = useAdminProcesses();
-  const { data: allProcesses = [] } = useProcesses();
-  const { data: allNodes = [] } = useNodes();
+  const { data: adminProcesses = [] } = useAdminProcesses(true);
+  const { data: adminNodes = [] } = useAdminNodes(true);
   const createProcess = useCreateProcess();
   const createNode = useCreateNode();
   const updateProcess = useUpdateProcess();
@@ -1018,13 +1017,6 @@ export default function AdminPage() {
   const updateNode = useUpdateNode();
   const deleteNode = useDeleteNode();
   const { toast } = useToast();
-  
-  // Show nodes where user has admin access - either via process or direct node permission
-  // allNodes already filters to nodes user has access to, and includes userRole
-  const adminProcessIds = new Set(adminProcesses.map(p => p.id));
-  const adminNodes = allNodes.filter(n => 
-    adminProcessIds.has(n.processId) || n.userRole === 'admin' || n.userRole === 'owner'
-  );
   
   const [newProcessOpen, setNewProcessOpen] = React.useState(false);
   const [newNodeOpen, setNewNodeOpen] = React.useState(false);
@@ -1226,13 +1218,14 @@ export default function AdminPage() {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {adminProcesses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No processes you have admin access to. Create a new process to get started.
                 </TableCell>
               </TableRow>
@@ -1242,6 +1235,15 @@ export default function AdminPage() {
                   <TableCell className="font-mono text-xs">{p.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-muted-foreground">{p.description || '-'}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                      p.isActive
+                        ? 'bg-success/10 text-success'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {p.isActive ? 'Yes' : 'No'}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button 
                       variant="ghost" 
@@ -1319,7 +1321,7 @@ export default function AdminPage() {
                       <SelectValue placeholder="Select a process" />
                     </SelectTrigger>
                     <SelectContent>
-                      {adminProcesses.map(p => (
+                      {adminProcesses.filter(p => p.isActive).map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1365,7 +1367,7 @@ export default function AdminPage() {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Parent Process</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -1378,7 +1380,7 @@ export default function AdminPage() {
               </TableRow>
             ) : (
               adminNodes.map(n => {
-                const process = allProcesses.find(p => p.id === n.processId);
+                const process = adminProcesses.find(p => p.id === n.processId);
                 return (
                   <TableRow key={n.id} data-testid={`row-node-${n.id}`}>
                     <TableCell className="font-mono text-xs">{n.id.substring(0, 8)}...</TableCell>
@@ -1386,11 +1388,11 @@ export default function AdminPage() {
                     <TableCell>{process?.name || 'Unknown'}</TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                        n.status === 'down' 
-                          ? 'bg-destructive/10 text-destructive' 
-                          : 'bg-success/10 text-success'
+                        n.isActive
+                          ? 'bg-success/10 text-success'
+                          : 'bg-muted text-muted-foreground'
                       }`}>
-                        {n.status.toUpperCase()}
+                        {n.isActive ? 'Yes' : 'No'}
                       </span>
                     </TableCell>
                     <TableCell className="text-right space-x-1">

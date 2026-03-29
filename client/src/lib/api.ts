@@ -215,12 +215,14 @@ export async function assignPermission(data: { userId: string; processId?: strin
 }
 
 // Analytics API
-export async function getAdminProcesses() {
-  return fetchAPI<Process[]>('/api/analytics/admin-processes');
+export async function getAdminProcesses(includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  return fetchAPI<Process[]>(`/api/analytics/admin-processes${params}`);
 }
 
-export async function getAdminNodes() {
-  return fetchAPI<Node[]>('/api/analytics/admin-nodes');
+export async function getAdminNodes(includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  return fetchAPI<Node[]>(`/api/analytics/admin-nodes${params}`);
 }
 
 export async function getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string) {

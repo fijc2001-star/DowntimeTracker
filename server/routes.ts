@@ -633,7 +633,8 @@ export async function registerRoutes(
   app.get("/api/analytics/admin-processes", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const adminProcesses = await storage.getUserAdminProcesses(userId);
+      const includeInactive = req.query.includeInactive === 'true';
+      const adminProcesses = await storage.getUserAdminProcesses(userId, includeInactive);
       res.json(adminProcesses);
     } catch (error) {
       console.error("Error fetching admin processes:", error);
@@ -645,7 +646,8 @@ export async function registerRoutes(
   app.get("/api/analytics/admin-nodes", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const adminNodes = await storage.getUserAdminNodes(userId);
+      const includeInactive = req.query.includeInactive === 'true';
+      const adminNodes = await storage.getUserAdminNodes(userId, includeInactive);
       res.json(adminNodes);
     } catch (error) {
       console.error("Error fetching admin nodes:", error);

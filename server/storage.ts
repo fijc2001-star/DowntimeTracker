@@ -97,8 +97,8 @@ export interface IStorage {
     effectiveStart: string;
     effectiveEnd: string;
   }>;
-  getUserAdminProcesses(userId: string): Promise<Process[]>;
-  getUserAdminNodes(userId: string): Promise<Node[]>;
+  getUserAdminProcesses(userId: string, includeInactive?: boolean): Promise<Process[]>;
+  getUserAdminNodes(userId: string, includeInactive?: boolean): Promise<Node[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -916,7 +916,7 @@ export class DatabaseStorage implements IStorage {
     };
   }
 
-  async getUserAdminProcesses(userId: string): Promise<Process[]> {
+  async getUserAdminProcesses(userId: string, includeInactive = false): Promise<Process[]> {
     // Get processes where user has direct admin/owner access (not node-level)
     // Node-level admin does NOT grant process-level analytics access
     const directPerms = await db.select({ processId: userPermissions.processId })
@@ -932,14 +932,14 @@ export class DatabaseStorage implements IStorage {
     
     if (processIds.length === 0) return [];
     
-    return await db.select().from(processes)
-      .where(and(
-        inArray(processes.id, processIds),
-        eq(processes.isActive, true)
-      ));
+    const condition = includeInactive
+      ? inArray(processes.id, processIds)
+      : and(inArray(processes.id, processIds), eq(processes.isActive, true));
+
+    return await db.select().from(processes).where(condition);
   }
 
-  async getUserAdminNodes(userId: string): Promise<Node[]> {
+  async getUserAdminNodes(userId: string, includeInactive = false): Promise<Node[]> {
     // Get nodes where user has direct admin/owner permission
     const directPerms = await db.select({ nodeId: userPermissions.nodeId })
       .from(userPermissions)
@@ -951,23 +951,25 @@ export class DatabaseStorage implements IStorage {
     
     const directNodeIds = directPerms.map(p => p.nodeId).filter((id): id is string => id !== null);
     
-    // Get nodes in processes where user has admin/owner access
-    const adminProcesses = await this.getUserAdminProcesses(userId);
+    // Get nodes in processes where user has admin/owner access (always include inactive for the process lookup)
+    const adminProcesses = await this.getUserAdminProcesses(userId, true);
     const adminProcessIds = adminProcesses.map(p => p.id);
     
     // Fetch both sets
     const directNodes = directNodeIds.length > 0 
-      ? await db.select().from(nodes).where(and(
-          inArray(nodes.id, directNodeIds),
-          eq(nodes.isActive, true)
-        ))
+      ? await db.select().from(nodes).where(
+          includeInactive
+            ? inArray(nodes.id, directNodeIds)
+            : and(inArray(nodes.id, directNodeIds), eq(nodes.isActive, true))
+        )
       : [];
     
     const processNodes = adminProcessIds.length > 0
-      ? await db.select().from(nodes).where(and(
-          inArray(nodes.processId, adminProcessIds),
-          eq(nodes.isActive, true)
-        ))
+      ? await db.select().from(nodes).where(
+          includeInactive
+            ? inArray(nodes.processId, adminProcessIds)
+            : and(inArray(nodes.processId, adminProcessIds), eq(nodes.isActive, true))
+        )
       : [];
     
     // Merge and deduplicate

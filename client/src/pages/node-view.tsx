@@ -163,6 +163,11 @@ export default function NodeView() {
           </div>
 
           {/* Big Buttons */}
+          {!node.isActive ? (
+            <div className="flex items-center justify-center w-full max-w-lg px-6 py-4 rounded-lg bg-muted text-muted-foreground text-center text-sm font-medium" data-testid="status-inactive-notice">
+              This node is inactive. Start/stop actions are disabled.
+            </div>
+          ) : (
           <div className="flex gap-6 w-full max-w-lg">
              {isDown ? (
                <Button 
@@ -197,6 +202,7 @@ export default function NodeView() {
                </Button>
              )}
           </div>
+          )}
         </CardContent>
       </Card>
 
