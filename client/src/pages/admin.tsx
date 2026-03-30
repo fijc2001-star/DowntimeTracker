@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAdminProcesses, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason, useUptimeReasonsByProcess, useCreateUptimeReason, useUpdateUptimeReason, useDeleteUptimeReason } from '@/lib/queries';
+import { Checkbox } from '@/components/ui/checkbox';
+import { useCurrentUser, useProcesses, useNodes, useAllUsers, useMyOwnedProcesses, useAdminProcesses, useAdminNodes, useMyAssignments, useAssignPermission, useRevokePermission, useProcessPermissions, useCreateProcess, useCreateNode, useUpdateProcess, useDeleteProcess, useUpdateNode, useDeleteNode, useDowntimeReasonsByProcess, useCreateDowntimeReason, useUpdateDowntimeReason, useDeleteDowntimeReason, useUptimeReasonsByProcess, useCreateUptimeReason, useUpdateUptimeReason, useDeleteUptimeReason } from '@/lib/queries';
 import type { DowntimeReason, UptimeReason } from '@shared/schema';
 import { useToast } from '@/hooks/use-toast';
 
@@ -1007,9 +1008,8 @@ function UptimeReasonsSection() {
 }
 
 export default function AdminPage() {
-  const { data: adminProcesses = [] } = useAdminProcesses();
-  const { data: allProcesses = [] } = useProcesses();
-  const { data: allNodes = [] } = useNodes();
+  const { data: adminProcesses = [] } = useAdminProcesses(true);
+  const { data: adminNodes = [] } = useAdminNodes(true);
   const createProcess = useCreateProcess();
   const createNode = useCreateNode();
   const updateProcess = useUpdateProcess();
@@ -1017,13 +1017,6 @@ export default function AdminPage() {
   const updateNode = useUpdateNode();
   const deleteNode = useDeleteNode();
   const { toast } = useToast();
-  
-  // Show nodes where user has admin access - either via process or direct node permission
-  // allNodes already filters to nodes user has access to, and includes userRole
-  const adminProcessIds = new Set(adminProcesses.map(p => p.id));
-  const adminNodes = allNodes.filter(n => 
-    adminProcessIds.has(n.processId) || n.userRole === 'admin' || n.userRole === 'owner'
-  );
   
   const [newProcessOpen, setNewProcessOpen] = React.useState(false);
   const [newNodeOpen, setNewNodeOpen] = React.useState(false);
@@ -1040,15 +1033,22 @@ export default function AdminPage() {
   // Edit state
   const [editingProcessId, setEditingProcessId] = React.useState('');
   const [editingNodeId, setEditingNodeId] = React.useState('');
+  // Add-form active state (always defaults to true)
+  const [newProcIsActive, setNewProcIsActive] = React.useState(true);
+  const [newNodeIsActive, setNewNodeIsActive] = React.useState(true);
+  // Edit-form active state (initialized from entity)
+  const [editProcIsActive, setEditProcIsActive] = React.useState(true);
+  const [editNodeIsActive, setEditNodeIsActive] = React.useState(true);
 
   const handleAddProcess = () => {
     createProcess.mutate(
-      { name: procName, description: procDesc },
+      { name: procName, description: procDesc, isActive: newProcIsActive },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Process created successfully' });
           setProcName('');
           setProcDesc('');
+          setNewProcIsActive(true);
           setNewProcessOpen(false);
         },
         onError: () => {
@@ -1060,13 +1060,14 @@ export default function AdminPage() {
 
   const handleAddNode = () => {
     createNode.mutate(
-      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus } as any,
+      { name: nodeName, processId: nodeProcId, initialStatus: nodeInitialStatus, isActive: newNodeIsActive },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node created successfully' });
           setNodeName('');
           setNodeProcId('');
           setNodeInitialStatus('running');
+          setNewNodeIsActive(true);
           setNewNodeOpen(false);
         },
         onError: () => {
@@ -1076,21 +1077,23 @@ export default function AdminPage() {
     );
   };
   
-  const handleEditProcess = (process: { id: string; name: string; description?: string | null }) => {
+  const handleEditProcess = (process: { id: string; name: string; description?: string | null; isActive: boolean }) => {
     setEditingProcessId(process.id);
     setProcName(process.name);
     setProcDesc(process.description || '');
+    setEditProcIsActive(process.isActive);
     setEditProcessOpen(true);
   };
   
   const handleUpdateProcess = () => {
     updateProcess.mutate(
-      { id: editingProcessId, data: { name: procName, description: procDesc } },
+      { id: editingProcessId, data: { name: procName, description: procDesc, isActive: editProcIsActive } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Process updated successfully' });
           setProcName('');
           setProcDesc('');
+          setEditProcIsActive(true);
           setEditingProcessId('');
           setEditProcessOpen(false);
         },
@@ -1112,21 +1115,23 @@ export default function AdminPage() {
     });
   };
   
-  const handleEditNode = (node: { id: string; name: string; processId: string }) => {
+  const handleEditNode = (node: { id: string; name: string; processId: string; isActive: boolean }) => {
     setEditingNodeId(node.id);
     setNodeName(node.name);
     setNodeProcId(node.processId);
+    setEditNodeIsActive(node.isActive);
     setEditNodeOpen(true);
   };
   
   const handleUpdateNode = () => {
     updateNode.mutate(
-      { id: editingNodeId, data: { name: nodeName } },
+      { id: editingNodeId, data: { name: nodeName, isActive: editNodeIsActive } },
       {
         onSuccess: () => {
           toast({ title: 'Success', description: 'Node updated successfully' });
           setNodeName('');
           setNodeProcId('');
+          setEditNodeIsActive(true);
           setEditingNodeId('');
           setEditNodeOpen(false);
         },
@@ -1161,7 +1166,7 @@ export default function AdminPage() {
         description="Production lines and workflows"
         icon={Settings2}
         headerAction={
-          <Dialog open={newProcessOpen} onOpenChange={setNewProcessOpen}>
+          <Dialog open={newProcessOpen} onOpenChange={open => { if (!open) { setProcName(''); setProcDesc(''); setNewProcIsActive(true); } setNewProcessOpen(open); }}>
             <DialogTrigger asChild>
               <Button size="sm" data-testid="button-add-process">
                 <Plus className="h-4 w-4 mr-2" /> Add Process
@@ -1190,6 +1195,15 @@ export default function AdminPage() {
                     data-testid="input-process-description"
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="new-process-active"
+                    checked={newProcIsActive}
+                    onCheckedChange={v => setNewProcIsActive(!!v)}
+                    data-testid="checkbox-process-active"
+                  />
+                  <Label htmlFor="new-process-active">Active</Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleAddProcess} data-testid="button-create-process">Create Process</Button>
@@ -1204,13 +1218,14 @@ export default function AdminPage() {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
+              <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {adminProcesses.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                   No processes you have admin access to. Create a new process to get started.
                 </TableCell>
               </TableRow>
@@ -1220,6 +1235,15 @@ export default function AdminPage() {
                   <TableCell className="font-mono text-xs">{p.id.substring(0, 8)}...</TableCell>
                   <TableCell className="font-medium">{p.name}</TableCell>
                   <TableCell className="text-muted-foreground">{p.description || '-'}</TableCell>
+                  <TableCell>
+                    <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                      p.isActive
+                        ? 'bg-success/10 text-success'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {p.isActive ? 'Yes' : 'No'}
+                    </span>
+                  </TableCell>
                   <TableCell className="text-right space-x-1">
                     <Button 
                       variant="ghost" 
@@ -1270,7 +1294,7 @@ export default function AdminPage() {
         description="Individual machines and stations"
         icon={Settings2}
         headerAction={
-          <Dialog open={newNodeOpen} onOpenChange={setNewNodeOpen}>
+          <Dialog open={newNodeOpen} onOpenChange={open => { if (!open) { setNodeName(''); setNodeProcId(''); setNodeInitialStatus('running'); setNewNodeIsActive(true); } setNewNodeOpen(open); }}>
             <DialogTrigger asChild>
               <Button variant="outline" size="sm" data-testid="button-add-node">
                 <Plus className="h-4 w-4 mr-2" /> Add Node
@@ -1297,7 +1321,7 @@ export default function AdminPage() {
                       <SelectValue placeholder="Select a process" />
                     </SelectTrigger>
                     <SelectContent>
-                      {adminProcesses.map(p => (
+                      {adminProcesses.filter(p => p.isActive).map(p => (
                         <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
                       ))}
                     </SelectContent>
@@ -1318,6 +1342,15 @@ export default function AdminPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="new-node-active"
+                    checked={newNodeIsActive}
+                    onCheckedChange={v => setNewNodeIsActive(!!v)}
+                    data-testid="checkbox-node-active"
+                  />
+                  <Label htmlFor="new-node-active">Active</Label>
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={handleAddNode} disabled={!nodeName || !nodeProcId} data-testid="button-create-node">
@@ -1334,7 +1367,7 @@ export default function AdminPage() {
               <TableHead>ID</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Parent Process</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>Active</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -1347,7 +1380,7 @@ export default function AdminPage() {
               </TableRow>
             ) : (
               adminNodes.map(n => {
-                const process = allProcesses.find(p => p.id === n.processId);
+                const process = adminProcesses.find(p => p.id === n.processId);
                 return (
                   <TableRow key={n.id} data-testid={`row-node-${n.id}`}>
                     <TableCell className="font-mono text-xs">{n.id.substring(0, 8)}...</TableCell>
@@ -1355,11 +1388,11 @@ export default function AdminPage() {
                     <TableCell>{process?.name || 'Unknown'}</TableCell>
                     <TableCell>
                       <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
-                        n.status === 'down' 
-                          ? 'bg-destructive/10 text-destructive' 
-                          : 'bg-success/10 text-success'
+                        n.isActive
+                          ? 'bg-success/10 text-success'
+                          : 'bg-muted text-muted-foreground'
                       }`}>
-                        {n.status.toUpperCase()}
+                        {n.isActive ? 'Yes' : 'No'}
                       </span>
                     </TableCell>
                     <TableCell className="text-right space-x-1">
@@ -1472,6 +1505,15 @@ export default function AdminPage() {
                 data-testid="input-edit-process-description"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="edit-process-active"
+                checked={editProcIsActive}
+                onCheckedChange={v => setEditProcIsActive(!!v)}
+                data-testid="checkbox-edit-process-active"
+              />
+              <Label htmlFor="edit-process-active">Active</Label>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditProcessOpen(false)}>Cancel</Button>
@@ -1495,6 +1537,15 @@ export default function AdminPage() {
                 placeholder="e.g. CNC Machine 04"
                 data-testid="input-edit-node-name"
               />
+            </div>
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="edit-node-active"
+                checked={editNodeIsActive}
+                onCheckedChange={v => setEditNodeIsActive(!!v)}
+                data-testid="checkbox-edit-node-active"
+              />
+              <Label htmlFor="edit-node-active">Active</Label>
             </div>
           </div>
           <DialogFooter>

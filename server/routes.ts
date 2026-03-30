@@ -577,6 +577,10 @@ export async function registerRoutes(
       if (!node) {
         return res.status(404).json({ message: "Node not found" });
       }
+
+      if (!node.isActive) {
+        return res.status(400).json({ message: "Cannot start downtime on an inactive node" });
+      }
       
       const event = await storage.createDowntimeEvent({
         nodeId,
@@ -609,6 +613,16 @@ export async function registerRoutes(
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Check node exists and is active
+      const node = await storage.getNode(nodeId);
+      if (!node) {
+        return res.status(404).json({ message: "Node not found" });
+      }
+
+      if (!node.isActive) {
+        return res.status(400).json({ message: "Cannot stop downtime on an inactive node" });
+      }
+
       // Find active event
       const activeEvent = await storage.getActiveDowntimeEvent(nodeId);
       if (!activeEvent) {
@@ -633,7 +647,8 @@ export async function registerRoutes(
   app.get("/api/analytics/admin-processes", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const adminProcesses = await storage.getUserAdminProcesses(userId);
+      const includeInactive = req.query.includeInactive === 'true';
+      const adminProcesses = await storage.getUserAdminProcesses(userId, includeInactive);
       res.json(adminProcesses);
     } catch (error) {
       console.error("Error fetching admin processes:", error);
@@ -645,7 +660,8 @@ export async function registerRoutes(
   app.get("/api/analytics/admin-nodes", isAuthenticated, async (req, res) => {
     try {
       const userId = getUserId(req);
-      const adminNodes = await storage.getUserAdminNodes(userId);
+      const includeInactive = req.query.includeInactive === 'true';
+      const adminNodes = await storage.getUserAdminNodes(userId, includeInactive);
       res.json(adminNodes);
     } catch (error) {
       console.error("Error fetching admin nodes:", error);

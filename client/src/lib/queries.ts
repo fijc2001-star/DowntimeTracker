@@ -107,7 +107,7 @@ export function useNode(id: string) {
 export function useCreateNode() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: InsertNode) => api.createNode(data),
+    mutationFn: (data: InsertNode & { initialStatus?: 'running' | 'stopped' }) => api.createNode(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.nodes() });
       queryClient.invalidateQueries({ queryKey: ['analytics', 'admin-nodes'] });
@@ -343,17 +343,17 @@ export function useRevokePermission() {
 }
 
 // Analytics Queries
-export function useAdminProcesses() {
+export function useAdminProcesses(includeInactive = false) {
   return useQuery({
-    queryKey: ['analytics', 'admin-processes'],
-    queryFn: api.getAdminProcesses,
+    queryKey: ['analytics', 'admin-processes', includeInactive],
+    queryFn: () => api.getAdminProcesses(includeInactive),
   });
 }
 
-export function useAdminNodes() {
+export function useAdminNodes(includeInactive = false) {
   return useQuery({
-    queryKey: ['analytics', 'admin-nodes'],
-    queryFn: api.getAdminNodes,
+    queryKey: ['analytics', 'admin-nodes', includeInactive],
+    queryFn: () => api.getAdminNodes(includeInactive),
   });
 }
 

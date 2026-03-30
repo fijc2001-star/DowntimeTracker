@@ -71,7 +71,7 @@ export async function getNode(id: string) {
   return fetchAPI<Node & { userRole: 'owner' | 'admin' | 'operator'; status: 'running' | 'down'; activeEvent: DowntimeEvent | null }>(`/api/nodes/${id}`);
 }
 
-export async function createNode(data: InsertNode) {
+export async function createNode(data: InsertNode & { initialStatus?: 'running' | 'stopped' }) {
   return fetchAPI<Node>('/api/nodes', {
     method: 'POST',
     body: JSON.stringify(data),
@@ -215,12 +215,14 @@ export async function assignPermission(data: { userId: string; processId?: strin
 }
 
 // Analytics API
-export async function getAdminProcesses() {
-  return fetchAPI<Process[]>('/api/analytics/admin-processes');
+export async function getAdminProcesses(includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  return fetchAPI<Process[]>(`/api/analytics/admin-processes${params}`);
 }
 
-export async function getAdminNodes() {
-  return fetchAPI<Node[]>('/api/analytics/admin-nodes');
+export async function getAdminNodes(includeInactive = false) {
+  const params = includeInactive ? '?includeInactive=true' : '';
+  return fetchAPI<Node[]>(`/api/analytics/admin-nodes${params}`);
 }
 
 export async function getDowntimeStatsByReason(entityType: 'process' | 'node', entityId: string, startDate?: string, endDate?: string) {

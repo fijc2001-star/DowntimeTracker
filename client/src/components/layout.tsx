@@ -69,7 +69,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
           <Activity className="h-5 w-5 text-primary-foreground" />
         </div>
         {!collapsed && (
-          <span className="font-display font-bold text-xl tracking-wide text-sidebar-foreground">DOWNTIME<span className="text-primary">.OS</span></span>
+          <span className="font-display font-bold text-xl tracking-wide text-sidebar-foreground">DOWNTIME<span className="text-primary">.OMS</span></span>
         )}
       </div>
       
